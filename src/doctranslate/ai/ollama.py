@@ -1,0 +1,113 @@
+"""Local Ollama provider and model-specific prompt strategies."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from .providers import HttpAiBackend
+
+
+_LANGUAGE_NAMES = {
+    "en": "English",
+    "cs": "Czech",
+    "de": "German",
+    "es": "Spanish",
+    "fr": "French",
+    "it": "Italian",
+    "pl": "Polish",
+    "sk": "Slovak",
+}
+
+
+def is_translategemma_model(model: str) -> bool:
+    """Return whether an Ollama tag belongs to the TranslateGemma family."""
+    return model.strip().casefold().split("@", 1)[0].startswith("translategemma:")
+
+
+def _language_name(code: str) -> str:
+    normalized = code.strip().lower().replace("_", "-")
+    return _LANGUAGE_NAMES.get(normalized, normalized)
+
+
+@dataclass(frozen=True)
+class OllamaPromptStrategy:
+    """Versioned prompt contract selected from the concrete Ollama model tag."""
+
+    strategy_id: str
+    revision: str
+
+    def build(self, source_language: str, target_language: str, text: str, *, structured: bool = False) -> str:
+        source_code = source_language.strip().lower()
+        target_code = target_language.strip().lower()
+        source_name = _language_name(source_code)
+        target_name = _language_name(target_code)
+        prompt = (
+            f"You are a professional {source_name} ({source_code}) to {target_name} ({target_code}) translator. "
+            f"Your goal is to accurately convey the meaning and nuances of the original {source_name} text "
+            f"while adhering to {target_name} grammar, vocabulary, and cultural sensitivities.\n"
+        )
+        if structured:
+            prompt += (
+                "Return only one JSON object with exactly the same document block and fragment IDs. "
+                "Translate only the natural-language string values; do not add explanations, Markdown or HTML. "
+                "Keep numeric tokens, placeholders, identifiers and the JSON structure unchanged. "
+                f"Please translate the following {source_name} document data into {target_name}:\n\n"
+            )
+        else:
+            prompt += (
+                f"Produce only the {target_name} translation, without any additional explanations or commentary. "
+                f"Please translate the following {source_name} text into {target_name}:\n\n"
+            )
+        return prompt + text
+
+
+TRANSLATEGEMMA_STRATEGY = OllamaPromptStrategy(
+    strategy_id="ollama-translategemma",
+    revision="translategemma-prompt-v1",
+)
+
+
+def prompt_strategy_for_model(model: str) -> OllamaPromptStrategy | None:
+    """Resolve TranslateGemma's prompt strategy, or None for legacy Ollama models."""
+    return TRANSLATEGEMMA_STRATEGY if is_translategemma_model(model) else None
+
+
+class OllamaBackend(HttpAiBackend):
+    """Local Ollama backend kept behind the same provider-neutral contract."""
+
+    provider_id = "ollama"
+    name = "Ollama"
+
+    def __init__(self, model: str, *, base_url: str = "http://localhost:11434", **kwargs):
+        super().__init__(model, base_url=base_url, **kwargs)
+
+    def _call_text(self, text: str, source_language: str, target_language: str) -> str:
+        strategy = prompt_strategy_for_model(self.model)
+        content = (
+            strategy.build(source_language, target_language, text)
+            if strategy is not None
+            else (
+                f"Translate from {source_language} to {target_language}. "
+                "Return only the translation.\n\n" + text
+            )
+        )
+        payload = {
+            "model": self.model,
+            "stream": False,
+            "messages": [{
+                "role": "user",
+                "content": content,
+            }],
+        }
+        value = self._post("/api/chat", payload)
+        if not isinstance(value, dict):
+            raise self._invalid()
+        message = value.get("message")
+        if not isinstance(message, dict):
+            raise self._invalid()
+        return self._string(message.get("content"), "message.content")
+
+    @staticmethod
+    def _invalid():
+        from .contracts import BackendError
+        return BackendError("invalid_response", "Ollama response has no message.content")

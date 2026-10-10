@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.run.log
+*.events.log
+*.run-error.json
+tmp_local_agent_checkpoint.json
+tmp_local_agent_out.log
+tmp_local_agent_in.md
+/doctranslate/
+
+# Runtime queue and worker state
+queue.json
+queue.lock
+queue.bak
+worker.lock
+worker-state.json
+queue.json.tmp
+worker-state.json.tmp
+worker.log
+
+# Local test outputs, reference PDFs/HTML and archived test bundle
+/tmp/
+
+translate.config.json
+translate.config.json.tmp

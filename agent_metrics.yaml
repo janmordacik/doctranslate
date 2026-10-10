@@ -1,0 +1,35 @@
+# Local-agent capability observations
+fingerprint:
+  model: qwen3-coder:30b
+  tool_mode: Native
+  backend: Continue CLI + Ollama
+  host: Windows
+highest_passed_level: 0
+first_failed_level: 1
+observations:
+  - timestamp: 2026-10-10T05:03:45+02:00
+    level: 1
+    capability_tags: [repository-read]
+    task: "Read translate.py and report first three top-level classes."
+    duration_seconds: 17
+    result: fail
+    validation: "No tool call; Continue server did not become ready within 15 seconds."
+    error: "Installed cn CLI does not expose the serve command expected by qwen-worker.ps1."
+  - timestamp: 2026-10-10T05:04:42+02:00
+    level: 1
+    capability_tags: [repository-read]
+    task: "Retry the same bounded read-only probe."
+    duration_seconds: 33
+    result: fail
+    validation: "No tool call; Continue server did not become ready within 15 seconds."
+    error: "Worker emitted SERVER_EXIT_ERROR: remote server connection failed."
+  - timestamp: 2026-10-10T15:13:24+02:00
+    level: 1
+    capability_tags: [repository-read]
+    task: "Read queue_worker.py once and report the import at Worker.run_job."
+    duration_seconds: 32
+    result: fail
+    validation: "Checkpoint completion_detected=false; zero tool calls; no implementation."
+    errors: ["Continue server did not become ready within 15 seconds", "SERVER_EXIT_ERROR; exitCode=1"]
+    fingerprint_notes: "Requested qwen3-coder:30b Native; model digest, Continue version/configuration and toolset not fully revalidated because server startup failed. Existing profile is not a verified implementation capability."
+status: blocked_by_tooling
