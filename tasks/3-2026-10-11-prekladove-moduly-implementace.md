@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md
 group: translation/engine
@@ -14,8 +14,9 @@ description: Implementovat volitelné basic/advanced překladové moduly podle p
 
 Toto je koordinační parent issue, nikoli jeden task pro Lunu.
 [Autoritativní návrh A19](../doc/modularization-analysis.md#a19-první-architektonický-návrh-v01-a-implementace-pro-lunu).
-Návrh čeká na review; žádný leaf nezačal, tato dokumentační práce není
-souhlas se spuštěním agenta nebo s implementací. Qwen/Continue zůstává vypnutý.
+Návrh A19 byl schválen. Leafy P01–P18 jsou implementované a jednotlivě ověřené;
+P17/P18 jsou offline benchmarky bez tvrzení o živé jazykové kvalitě. Qwen/Continue
+zůstává vypnutý a žádný lokální agent nebyl spuštěn.
 
 Jeden leaf je jeden samostatně reviewovatelný výsledek. Hierarchii vyjadřuje
 tento index a group, dependency znamená skutečný předpoklad, ne parent category.
@@ -31,10 +32,10 @@ Součet: 175–305 min; 640–1060 logických řádků; 9–17 k pracovních tok
 
 | ID / task | Čas | Řádky | Tokeny | Závislost po schválení návrhu | Stav |
 |---|---:|---:|---:|---|---|
-| [P01 Regresní ochrana prvního výstupu JobRunner](3-2026-10-11-pm-p01-jobrunner-prvni-vystup.md) | 30–60 min | 100–180  | 2–4 k | none | created |
-| [P02 Společný kontrakt engine a explicitní registr](3-2026-10-11-pm-p02-engine-kontrakt-a-registr.md) | 40–70 min | 160–260  | 2–4 k | P01 | created |
-| [P03 Basic engine nad injektovaným dávkovým executorem](3-2026-10-11-pm-p03-basic-engine.md) | 60–100 min | 200–320  | 3–5 k | P02 | created |
-| [P04 Verzovaný checkpoint a účinná identita](3-2026-10-11-pm-p04-engine-checkpoint.md) | 45–75 min | 180–300  | 2–4 k | P02 | created |
+| [P01 Regresní ochrana prvního výstupu JobRunner](3-2026-10-11-pm-p01-jobrunner-prvni-vystup.md) | 30–60 min | 100–180  | 2–4 k | none | done |
+| [P02 Společný kontrakt engine a explicitní registr](3-2026-10-11-pm-p02-engine-kontrakt-a-registr.md) | 40–70 min | 160–260  | 2–4 k | P01 | done |
+| [P03 Basic engine nad injektovaným dávkovým executorem](3-2026-10-11-pm-p03-basic-engine.md) | 60–100 min | 200–320  | 3–5 k | P02 | done |
+| [P04 Verzovaný checkpoint a účinná identita](3-2026-10-11-pm-p04-engine-checkpoint.md) | 45–75 min | 180–300  | 2–4 k | P02 | done |
 
 ### 2. Produkční napojení a volba jobu
 
@@ -42,10 +43,10 @@ Součet: 200–350 min; 760–1280 logických řádků; 11–19 k pracovních to
 
 | ID / task | Čas | Řádky | Tokeny | Závislost po schválení návrhu | Stav |
 |---|---:|---:|---:|---|---|
-| [P05 Bezztrátový legacy XHTML a batch bridge](3-2026-10-11-pm-p05-legacy-xhtml-bridge.md) | 60–100 min | 200–340  | 3–5 k | P02, P03, P04 | created |
-| [P06 JSON job selection a bezpečné publikování změn](3-2026-10-11-pm-p06-job-volba-modulu.md) | 40–70 min | 160–260  | 2–4 k | P02 | created |
-| [P07 Produkční worker dispatch přes registry a bridge](3-2026-10-11-pm-p07-worker-engine-dispatch.md) | 50–90 min | 200–340  | 3–5 k | P03, P04, P05, P06 | created |
-| [P08 Volba modulu v GUI a CLI](3-2026-10-11-pm-p08-gui-cli-volba-modulu.md) | 50–90 min | 200–340  | 3–5 k | P06, P07 | created |
+| [P05 Bezztrátový legacy XHTML a batch bridge](3-2026-10-11-pm-p05-legacy-xhtml-bridge.md) | 60–100 min | 200–340  | 3–5 k | P02, P03, P04 | done |
+| [P06 JSON job selection a bezpečné publikování změn](3-2026-10-11-pm-p06-job-volba-modulu.md) | 40–70 min | 160–260  | 2–4 k | P02 | done |
+| [P07 Produkční worker dispatch přes registry a bridge](3-2026-10-11-pm-p07-worker-engine-dispatch.md) | 50–90 min | 200–340  | 3–5 k | P03, P04, P05, P06 | done |
+| [P08 Volba modulu v GUI a CLI](3-2026-10-11-pm-p08-gui-cli-volba-modulu.md) | 50–90 min | 200–340  | 3–5 k | P06, P07 | done |
 
 ### 3. Pokročilý standardní režim
 
@@ -53,11 +54,11 @@ Součet: 270–465 min; 1040–1700 logických řádků; 14–25 k pracovních t
 
 | ID / task | Čas | Řádky | Tokeny | Závislost po schválení návrhu | Stav |
 |---|---:|---:|---:|---|---|
-| [P09 Sémantické segmenty a token-bounded dávky](3-2026-10-11-pm-p09-semantic-batch-planner.md) | 40–70 min | 180–300  | 2–4 k | P02, P05 | created |
-| [P10 JSON glosář s revizemi a konflikty](3-2026-10-11-pm-p10-json-glossary-store.md) | 55–95 min | 200–340  | 3–5 k | P02, P04 | created |
-| [P11 Relevantní glosář, konkordance a omezený kontext](3-2026-10-11-pm-p11-bounded-memory-context.md) | 55–95 min | 220–360  | 3–5 k | P09, P10 | created |
-| [P12 ContextualBackend port a Ollama payload](3-2026-10-11-pm-p12-contextual-provider-port.md) | 55–95 min | 200–320  | 3–5 k | P02, P05, P11 | created |
-| [P13 Standardní advanced engine a jeho aktivace](3-2026-10-11-pm-p13-advanced-standard-engine.md) | 65–110 min | 240–380  | 3–6 k | P03, P04, P07, P09, P10, P11, P12 | created |
+| [P09 Sémantické segmenty a token-bounded dávky](3-2026-10-11-pm-p09-semantic-batch-planner.md) | 40–70 min | 180–300  | 2–4 k | P02, P05 | done |
+| [P10 JSON glosář s revizemi a konflikty](3-2026-10-11-pm-p10-json-glossary-store.md) | 55–95 min | 200–340  | 3–5 k | P02, P04 | done |
+| [P11 Relevantní glosář, konkordance a omezený kontext](3-2026-10-11-pm-p11-bounded-memory-context.md) | 55–95 min | 220–360  | 3–5 k | P09, P10 | done |
+| [P12 ContextualBackend port a Ollama payload](3-2026-10-11-pm-p12-contextual-provider-port.md) | 55–95 min | 200–320  | 3–5 k | P02, P05, P11 | done |
+| [P13 Standardní advanced engine a jeho aktivace](3-2026-10-11-pm-p13-advanced-standard-engine.md) | 65–110 min | 240–380  | 3–6 k | P03, P04, P07, P09, P10, P11, P12 | done |
 
 ### 4. Volitelné agentní rozšíření
 
@@ -65,9 +66,9 @@ Součet: 160–280 min; 600–1000 logických řádků; 8–14 k pracovních tok
 
 | ID / task | Čas | Řádky | Tokeny | Závislost po schválení návrhu | Stav |
 |---|---:|---:|---:|---|---|
-| [P14 Spravované memory nástroje a revision návrhy](3-2026-10-11-pm-p14-managed-memory-tools.md) | 50–90 min | 180–300  | 2–4 k | P10, P11, P13 | created |
-| [P15 Volitelný AgentBackend a validované tool turns](3-2026-10-11-pm-p15-agent-backend-port.md) | 55–95 min | 200–340  | 3–5 k | P12, P14 | created |
-| [P16 Omezená agentní relace, cílené opravy a recovery](3-2026-10-11-pm-p16-bounded-agent-session.md) | 55–95 min | 220–360  | 3–5 k | P04, P13, P14, P15 | created |
+| [P14 Spravované memory nástroje a revision návrhy](3-2026-10-11-pm-p14-managed-memory-tools.md) | 50–90 min | 180–300  | 2–4 k | P10, P11, P13 | done |
+| [P15 Volitelný AgentBackend a validované tool turns](3-2026-10-11-pm-p15-agent-backend-port.md) | 55–95 min | 200–340  | 3–5 k | P12, P14 | done |
+| [P16 Omezená agentní relace, cílené opravy a recovery](3-2026-10-11-pm-p16-bounded-agent-session.md) | 55–95 min | 220–360  | 3–5 k | P04, P13, P14, P15 | done |
 
 ### 5. Ověření
 
@@ -75,8 +76,8 @@ Součet: 95–165 min; 320–560 logických řádků; 5–9 k pracovních token�
 
 | ID / task | Čas | Řádky | Tokeny | Závislost po schválení návrhu | Stav |
 |---|---:|---:|---:|---|---|
-| [P17 Standardní moduly – integrace a výkonový experiment](3-2026-10-11-pm-p17-standard-acceptance-benchmark.md) | 60–100 min | 200–340  | 3–5 k | P08, P13 | created |
-| [P18 Extended režim – ověření schopností a režie](3-2026-10-11-pm-p18-extended-acceptance-benchmark.md) | 35–65 min | 120–220  | 2–4 k | P16, P17 | created |
+| [P17 Standardní moduly – integrace a výkonový experiment](3-2026-10-11-pm-p17-standard-acceptance-benchmark.md) | 60–100 min | 200–340  | 3–5 k | P08, P13 | done |
+| [P18 Extended režim – ověření schopností a režie](3-2026-10-11-pm-p18-extended-acceptance-benchmark.md) | 35–65 min | 120–220  | 2–4 k | P16, P17 | done |
 
 ## Milníky a pořadí
 
@@ -131,3 +132,15 @@ git diff --check a revize relevantních A18/A19 UML/process index.
 
 2026-10-11: Vytvořen hierarchický plán pro Codex Luna 5.6. Osmnáct leaf issues,
 testy v každém tasku, tři dodávatelné milníky. Pouze plán, žádná implementace.
+
+
+2026-10-11: Parent uzavřen po dokončení P01–P18. Každý leaf byl zpracován
+samostatně, otestován a commitnut; aktuální úplná offline regrese je 246 passed,
+4 subtests passed. Zbývá pouze provozní/live ověření modelu, GUI a cloudových
+credentials podle konkrétních odložených tasků; tato ověření nejsou podmínkou
+funkčnosti basic/standard offline milestone.
+
+2026-10-11: Skutečný rozsah jednotlivých leafů se zapisuje v jejich comments;
+u P14–P17 přesáhl původní řádkový odhad kvůli explicitním CAS, validaci,
+integračním tokům a benchmark metadata. Odhady zůstávají plánovací, nikoli
+garance délky inference.
