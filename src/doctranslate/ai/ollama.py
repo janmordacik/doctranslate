@@ -21,6 +21,8 @@ from .context_backend import (
 from .contracts import BackendError
 
 from .providers import HttpAiBackend
+from .ollama_runtime import OllamaProcessManager
+from .transport import SubprocessHttpTransport
 from .translation import Prompt, translate_prompt
 
 
@@ -101,11 +103,123 @@ class OllamaBackend(HttpAiBackend):
         *,
         base_url: str = "http://localhost:11434",
         agent_tools_enabled: bool = False,
+        managed_ollama: bool = False,
+        ollama_executable: str = "ollama",
+        ollama_port: int = 11435,
+        ollama_context_length: int | None = None,
         **kwargs,
     ):
-        super().__init__(model, base_url=base_url, **kwargs)
+        if ollama_context_length is not None and (
+            type(ollama_context_length) is not int or ollama_context_length < 1
+        ):
+            raise ValueError("ollama_context_length must be a positive integer or None")
+        transport = kwargs.pop("transport", None) or SubprocessHttpTransport()
+        self.ollama_runtime = (
+            OllamaProcessManager(
+                executable=ollama_executable,
+                port=ollama_port,
+                context_length=ollama_context_length,
+            )
+            if managed_ollama
+            else None
+        )
+        if self.ollama_runtime is not None:
+            base_url = self.ollama_runtime.base_url
+        super().__init__(model, base_url=base_url, transport=transport, **kwargs)
         # This flag is explicit configuration, not model-name autodetection.
         self.agent_tools_enabled = agent_tools_enabled
+        self.managed_ollama = managed_ollama
+        self.ollama_context_length = ollama_context_length
+        self.runtime_logger = None
+
+    def configure_runtime(
+        self,
+        *,
+        cancel_event=None,
+        logger=None,
+    ) -> None:
+        """Bind worker cancellation and lifecycle callbacks after construction."""
+        if self.ollama_runtime is not None:
+            self.ollama_runtime.logger = logger
+        self.runtime_logger = logger
+        bind_control = getattr(self.transport, "bind_control", None)
+        if callable(bind_control):
+            bind_control(
+                cancel_event=cancel_event,
+                on_abort=self._abort_runtime,
+            )
+
+    def _post(self, suffix, payload, headers=None):
+        """Start the owned server lazily, immediately before an AI request."""
+        if self.ollama_runtime is not None and not self.ollama_runtime.running:
+            self.ollama_runtime.start()
+        self._log_runtime_info("before_request")
+        try:
+            return super()._post(suffix, payload, headers)
+        finally:
+            self._log_runtime_info("after_request")
+
+    def _log_runtime_info(self, phase: str) -> None:
+        """Log model metadata and the actual runner context without reading model files."""
+        if self.runtime_logger is None:
+            return
+        try:
+            tags = HttpAiBackend._get(self, "/api/tags")
+            running = HttpAiBackend._get(self, "/api/ps")
+            model = self._find_model(tags, self.model)
+            active = self._find_model(running, self.model)
+            details = model.get("details", {}) if model else {}
+            fields = {
+                "phase": phase,
+                "model": self.model,
+                "requested_context": self.ollama_context_length,
+                "supported_context": details.get("context_length"),
+                "model_size": model.get("size") if model else None,
+                "runtime_context": active.get("context_length") if active else None,
+                "runtime_size": active.get("size") if active else None,
+                "runtime_size_vram": active.get("size_vram") if active else None,
+            }
+            if self.runtime_logger is not None:
+                self.runtime_logger("worker.translation.ollama.runtime", **fields)
+        except Exception as exc:
+            if self.runtime_logger is not None:
+                self.runtime_logger(
+                    "worker.translation.ollama.runtime_probe_failed",
+                    phase=phase,
+                    model=self.model,
+                    error=str(exc),
+                )
+
+    @staticmethod
+    def _find_model(payload, model: str) -> dict | None:
+        """Find one model record in an Ollama tags or running-model response."""
+        if not isinstance(payload, dict) or not isinstance(payload.get("models"), list):
+            return None
+        return next(
+            (
+                item for item in payload["models"]
+                if isinstance(item, dict)
+                and item.get("name", item.get("model")) == model
+            ),
+            None,
+        )
+
+    def _request_options(self, **values: int) -> dict[str, int]:
+        """Build Ollama options without imposing a VRAM-specific default."""
+        options = dict(values)
+        if self.ollama_context_length is not None:
+            options["num_ctx"] = self.ollama_context_length
+        return options
+
+    def close(self) -> None:
+        """Stop only the worker-owned Ollama instance."""
+        if self.ollama_runtime is not None:
+            self.ollama_runtime.close()
+
+    def _abort_runtime(self, reason: str) -> None:
+        """Restart owned Ollama after a request abort; external Ollama is untouched."""
+        if self.ollama_runtime is not None:
+            self.ollama_runtime.restart()
 
     def _call_text(
         self,
@@ -130,6 +244,7 @@ class OllamaBackend(HttpAiBackend):
         payload = {
             "model": self.model,
             "stream": False,
+            "options": self._request_options(),
             "messages": [{
                 "role": "user",
                 "content": content,
@@ -192,6 +307,7 @@ class OllamaBackend(HttpAiBackend):
             "model": self.model,
             "stream": False,
             "format": "json",
+            "options": self._request_options(num_predict=request.max_output_tokens),
             "messages": messages,
             "tools": [
                 {"name": name, "schema": dict(schema)}
@@ -237,6 +353,7 @@ class OllamaBackend(HttpAiBackend):
             "model": self.model,
             "stream": False,
             "format": "json",
+            "options": self._request_options(),
             "messages": [
                 {"role": "system", "content": instructions},
                 {
@@ -267,6 +384,7 @@ class OllamaBackend(HttpAiBackend):
         value = self._post(
             "/api/chat",
             {"model": self.model, "stream": False,
+             "options": self._request_options(),
              "messages": [{"role": "user", "content": translate_prompt(prompt)}]},
         )
         if not isinstance(value, dict) or not isinstance(value.get("message"), dict):

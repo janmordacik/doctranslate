@@ -1398,8 +1398,18 @@ Render-only obejde registry, backend i kontrolu překladových schopností.
 
 Návrh advanced options v0.1: mode=standard, max_batch_input_tokens,
 max_context_tokens, reserved_output_tokens, max_attempts=2,
-glossary_path a quality_policy=warn|strict. Rozpočet musí být kladný a vejít se
-do zjištěného efektivního limitu modelu. Univerzální velikost dávky se neurčuje.
+request_timeout (celkový limit v sekundách na jeden provider request,
+výchozí 1800), glossary_path a quality_policy=warn|strict. Pro lokální Ollamu
+jsou dostupné také manage_ollama=true, ollama_executable, ollama_port=11435
+a volitelný ollama_context_length. Pokud není zadán, modul nenutí žádnou
+VRAM-specifickou hodnotu: Ollama zvolí kontext podle skutečných zdrojů.
+Při explicitním override worker nastavuje OLLAMA_CONTEXT_LENGTH a posílá
+hodnotu také jako options.num_ctx v každém požadavku. Modelový limit se čte
+přes /api/tags nebo /api/show a skutečný limit běžícího runneru přes /api/ps.
+Tyto hodnoty, velikost modelu a size_vram se zapisují do provozního logu.
+Při manage_ollama=false se používá externí endpoint a modul jej nesmí ukončit.
+Rozpočet musí být kladný a vejít se do zjištěného efektivního limitu modelu.
+Univerzální velikost dávky se neurčuje.
 Režim extended navíc max_tool_calls=4, max_revisions=1, max_session_calls=8
 a max_session_seconds=120. Jde o výchozí ochranné hodnoty pro první testy,
 konfigurovatelné a započítávající i chyby/opravné kroky, nikoli výkonové sliby.
@@ -1407,6 +1417,50 @@ konfigurovatelné a započítávající i chyby/opravné kroky, nikoli výkonov�
 Quality policy: strukturální chyba vždy fail; terminologické/obsahové podezření
 je explicitní warning nebo fail podle politiky. Vyčerpání budgetu při chybějícím
 překladu je fail, nikoli tiché označení kompletního jobu done.
+
+### A03c Aktuální recovery Ollama požadavku
+
+Pokročilý worker je současně supervisor lokálního AI požadavku. Ollama HTTP
+požadavek běží v krátkodobém child procesu; tím lze skutečně ukončit i
+blokující čtení odpovědi. Při výchozím nastavení modul spouští vlastní Ollamu
+na dedikovaném loopback portu. Cizí instance na jiném endpointu se nezabíjí.
+
+~~~mermaid
+sequenceDiagram
+    participant W as Worker supervisor
+    participant R as Ollama provider module
+    participant Q as Request child
+    participant O as Owned Ollama
+    participant C as Checkpoint store
+    W->>R: translate batch
+    R->>O: start or reuse owned server
+    R->>Q: start HTTP request child
+    Q->>O: /api/chat
+    alt response before 1800 s
+        O-->>Q: JSON response
+        Q-->>R: HttpResponse
+        R-->>W: translated batch
+        W->>C: commit checkpoint
+    else Stop or job invalidation
+        W->>Q: terminate request child
+        R->>O: restart owned Ollama
+        R-->>W: TranslationCancelled
+        W-->>W: keep job in_progress
+    else timeout
+        W->>Q: terminate request child at wall-clock deadline
+        R->>O: restart owned Ollama
+        R-->>W: request_timeout
+        alt retry remains
+            W->>R: retry same batch
+        else retry exhausted
+            W-->>W: mark job paused; checkpoint unchanged
+        end
+    end
+~~~
+
+Aktuální implementace používá worker-owned runtime jako výchozí volbu
+advanced Ollamy; nastavení manage_ollama=false je ochranná kompatibilní cesta
+pro již spravovaný externí server.
 
 ### A03 Hranice balíčků a reuse
 

@@ -323,3 +323,15 @@ položkou PYTHONPATH nastavenou na absolutní src, a nepotřebné proměnné nep
 - Workaround: pro doslovné hledání použít rg -F nebo escapovat závorky v
   Select-String -Pattern; po chybě zkontrolovat, že se soubor nezměnil.
 - Stav: funkční workaround.
+
+## 2026-10-11: Worker-owned Ollama smoke test mimo GUI
+
+- Příznak: izolovaný smoke test skončí na Access is denied pro
+  C:\Users\mordacik\.ollama\models, přestože projekt používá D:\ai\ollama\models.
+- Postup: před startem testovacího procesu nastav OLLAMA_MODELS na
+  D:\ai\ollama\models a PYTHONPATH na projektové src. Konfigurace workeru
+  následně ověří skutečný runner přes http://127.0.0.1:11435/api/ps.
+- Ověření: s num_ctx=131072 API oznámilo context_length=131072 a malý
+  požadavek proběhl úspěšně.
+- Stav: funkční workaround.
+- Datum: 2026-10-11.

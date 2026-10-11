@@ -22,6 +22,9 @@ from .registry import TranslationEngineRegistry, register_advanced_standard
 
 
 BackendFactory = Callable[[dict[str, Any], Any], object]
+DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS = 1800
+DEFAULT_OLLAMA_PORT = 11435
+DEFAULT_OLLAMA_CONTEXT_LENGTH = None
 
 
 def _default_backend_factory(job: dict[str, Any], translate_module: Any) -> object:
@@ -39,7 +42,23 @@ def _default_backend_factory(job: dict[str, Any], translate_module: Any) -> obje
         "TRANSLATE_OLLAMA_URL",
         str(getattr(translate_module, "OLLAMA_URL", "http://localhost:11434")),
     )
-    return OllamaBackend(model, base_url=base_url)
+    translator_options = job.get("translator_options") or {}
+    timeout = translator_options.get(
+        "request_timeout",
+        DEFAULT_OLLAMA_REQUEST_TIMEOUT_SECONDS,
+    )
+    return OllamaBackend(
+        model,
+        base_url=base_url,
+        timeout=timeout,
+        managed_ollama=translator_options.get("manage_ollama", True),
+        ollama_executable=translator_options.get("ollama_executable", "ollama"),
+        ollama_port=translator_options.get("ollama_port", DEFAULT_OLLAMA_PORT),
+        ollama_context_length=translator_options.get(
+            "ollama_context_length",
+            DEFAULT_OLLAMA_CONTEXT_LENGTH,
+        ),
+    )
 
 
 class ProductionTranslationRuntime:
@@ -55,6 +74,7 @@ class ProductionTranslationRuntime:
         self.worker = worker
         self.translate = translate_module
         self.backend_factory = backend_factory
+        self._active_backend: object | None = None
 
     def registry(self) -> TranslationEngineRegistry:
         """Return the registry exposed by the production composition root."""
@@ -83,6 +103,13 @@ class ProductionTranslationRuntime:
         if job is None:
             raise TranslationError("job_missing", "Cannot create engine without the current job")
         backend = self.backend_factory(job, translate_module)
+        configure_runtime = getattr(backend, "configure_runtime", None)
+        if callable(configure_runtime):
+            configure_runtime(
+                cancel_event=worker.cancel_event,
+                logger=worker.logger.event,
+            )
+        self._active_backend = backend
         output = Path(job["output"])
         state_prefix = output.with_name(output.name + ".advanced")
         return AdvancedTranslationEngine(
@@ -95,6 +122,14 @@ class ProductionTranslationRuntime:
             ),
         )
 
+    def close(self) -> None:
+        """Release provider processes owned by the current worker runtime."""
+        backend = getattr(self, "_active_backend", None)
+        close = getattr(backend, "close", None)
+        if callable(close):
+            close()
+        self._active_backend = None
+
     def __call__(
         self,
         engine: AdvancedTranslationEngine,
@@ -102,56 +137,59 @@ class ProductionTranslationRuntime:
         context: TranslationContext,
     ) -> None:
         """Translate XHTML fragments, write HTML, and optionally typeset PDF."""
-        if self.translate.PHASE not in {"html", "both"}:
-            raise TranslationError(
-                "invalid_phase",
-                "The advanced engine must receive html or both; pdf is render-only",
-            )
-        self.translate.configure_run_logging()
-        with self.translate.fitz.open(self.translate.INPUT_PDF) as source:
-            identity = self.translate.job_identity(source, self.translate.MODEL)
-            groups = [
-                (
-                    page_number,
-                    self.translate.extract_blocks(source, page_number),
+        try:
+            if self.translate.PHASE not in {"html", "both"}:
+                raise TranslationError(
+                    "invalid_phase",
+                    "The advanced engine must receive html or both; pdf is render-only",
                 )
-                for page_number in range(
-                    self.translate.FIRST_PAGE - 1,
+            self.translate.configure_run_logging()
+            with self.translate.fitz.open(self.translate.INPUT_PDF) as source:
+                identity = self.translate.job_identity(source, self.translate.MODEL)
+                groups = [
                     (
-                        self.translate.LAST_PAGE
-                        if self.translate.LAST_PAGE is not None
-                        else len(source)
-                    ),
+                        page_number,
+                        self.translate.extract_blocks(source, page_number),
+                    )
+                    for page_number in range(
+                        self.translate.FIRST_PAGE - 1,
+                        (
+                            self.translate.LAST_PAGE
+                            if self.translate.LAST_PAGE is not None
+                            else len(source)
+                        ),
+                    )
+                ]
+                metadata = self.translate.build_html_metadata(source, identity, groups)
+                document, fragment_map = self._fragment_document(
+                    metadata,
+                    groups,
+                    identity,
                 )
-            ]
-            metadata = self.translate.build_html_metadata(source, identity, groups)
-            document, fragment_map = self._fragment_document(
-                metadata,
-                groups,
-                identity,
+                result = engine.translate(document, options, context=context)
+                cache = self._restore_legacy_markup(result.document, fragment_map)
+                images = {
+                    page_number: self.translate.export_html_images(source, page_number)
+                    for page_number, _ in groups
+                }
+                self.translate.write_translation_html(
+                    metadata,
+                    groups,
+                    images,
+                    cache,
+                    {},
+                )
+            context.logger(
+                "worker.translation.engine.completed",
+                translator_id="advanced",
+                metrics=result.metrics,
+                warnings=result.warnings,
             )
-            result = engine.translate(document, options, context=context)
-            cache = self._restore_legacy_markup(result.document, fragment_map)
-            images = {
-                page_number: self.translate.export_html_images(source, page_number)
-                for page_number, _ in groups
-            }
-            self.translate.write_translation_html(
-                metadata,
-                groups,
-                images,
-                cache,
-                {},
-            )
-        context.logger(
-            "worker.translation.engine.completed",
-            translator_id="advanced",
-            metrics=result.metrics,
-            warnings=result.warnings,
-        )
-        if self.translate.PHASE == "both":
-            self.translate.set_activity("typesetting", phase="pdf", unit="pages")
-            self.translate.run_html_typesetting(context.cancel_event)
+            if self.translate.PHASE == "both":
+                self.translate.set_activity("typesetting", phase="pdf", unit="pages")
+                self.translate.run_html_typesetting(context.cancel_event)
+        finally:
+            self.close()
 
     def _fragment_document(
         self,

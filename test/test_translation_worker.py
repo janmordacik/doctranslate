@@ -13,6 +13,7 @@ from doctranslate.translation import (
     TranslationCancelled,
     TranslationContext,
     TranslationEngineRegistry,
+    TranslationError,
     TranslationOptions,
 )
 
@@ -121,6 +122,20 @@ class TranslationWorkerTests(unittest.TestCase):
             saved = store.jobs()[0]
 
         self.assertEqual(saved["state"], "in_progress")
+
+    def test_exhausted_request_timeout_pauses_job_without_marking_failed(self):
+        def runner(engine, options, context):
+            raise TranslationError("request_timeout", "AI request exceeded 1800 seconds")
+
+        with tempfile.TemporaryDirectory() as folder:
+            job = make_job(Path(folder) / "book.pdf", phase="html")
+            worker, store = self.make_worker(folder, job, runner)
+            worker.run_job(job)
+            saved = store.jobs()[0]
+
+        self.assertEqual(saved["state"], "paused")
+        self.assertIn("request_timeout", saved["error"])
+        self.assertNotEqual(saved["state"], "failed")
 
 
 if __name__ == "__main__":

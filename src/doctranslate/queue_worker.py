@@ -467,6 +467,48 @@ class Worker:
                 self.mark_job(self.current_job_id, "in_progress")
             self.write_state("paused" if current and current.get("state") == "paused" else "stopped")
             raise
+        except TranslationError as exc:
+            if exc.code == "request_timeout":
+                current = next(
+                    (
+                        item
+                        for item in self.store.jobs()
+                        if item.get("id") == self.current_job_id
+                    ),
+                    None,
+                )
+                details = f"{type(exc).__name__}: {exc}"
+                self.logger.event(
+                    "worker.job.timeout_paused",
+                    job_id=self.current_job_id,
+                    error=details,
+                )
+                if current is not None:
+                    self.mark_job(
+                        self.current_job_id,
+                        "paused",
+                        error=details,
+                        traceback="".join(
+                            traceback.format_exception(
+                                type(exc), exc, exc.__traceback__
+                            )
+                        ),
+                    )
+                self.write_state("paused", error=details)
+                return
+            self.logger.event(
+                "worker.job.failed",
+                job_id=self.current_job_id,
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+            self.mark_job(
+                self.current_job_id,
+                "failed",
+                error=f"{type(exc).__name__}: {exc}",
+                traceback="".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
+            )
+            self.write_state("failed", error=str(exc))
         except Exception as exc:
             self.logger.event(
                 "worker.job.failed",
@@ -537,6 +579,9 @@ class Worker:
             return 0
         finally:
             self.stop_heartbeat()
+            close_runtime = getattr(self.engine_runner, "close", None)
+            if callable(close_runtime):
+                close_runtime()
             lock.release()
             try:
                 self.state_path.unlink()

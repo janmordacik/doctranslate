@@ -29,6 +29,31 @@ class FakeTransport:
         return HttpResponse(self.status, {}, self.body)
 
 
+class OllamaRuntimeTransport(FakeTransport):
+    def request(self, method, url, **kwargs):
+        self.calls.append((method, url, kwargs))
+        if url.endswith("/api/tags"):
+            body = {
+                "models": [{
+                    "name": "translategemma:4b",
+                    "size": 3_300_000_000,
+                    "details": {"context_length": 131072},
+                }],
+            }
+        elif url.endswith("/api/ps"):
+            body = {
+                "models": [{
+                    "model": "translategemma:4b",
+                    "size": 3_500_000_000,
+                    "size_vram": 3_200_000_000,
+                    "context_length": 8192,
+                }],
+            }
+        else:
+            body = {"message": {"content": "Ahoj"}}
+        return HttpResponse(200, {}, body)
+
+
 class ProviderTests(unittest.TestCase):
     def credentials(self):
         store = MemoryCredentialStore()
@@ -46,6 +71,24 @@ class ProviderTests(unittest.TestCase):
         self.assertTrue(is_translategemma_model("translategemma:12b@sha256:test"))
         self.assertTrue(is_translategemma_model("translategemma:4b"))
         self.assertFalse(is_translategemma_model("qwen3.8:27b"))
+
+    def test_ollama_runtime_capabilities_are_logged_from_api(self):
+        transport = OllamaRuntimeTransport(None)
+        events = []
+        backend = OllamaBackend("translategemma:4b", transport=transport)
+        backend.configure_runtime(
+            logger=lambda event, **fields: events.append((event, fields)),
+        )
+
+        self.assertEqual(backend.translate("Hello", "en", "cs"), "Ahoj")
+        runtime_events = [fields for event, fields in events if event == "worker.translation.ollama.runtime"]
+        self.assertEqual(len(runtime_events), 2)
+        self.assertEqual(runtime_events[0]["supported_context"], 131072)
+        self.assertEqual(runtime_events[0]["runtime_context"], 8192)
+        self.assertEqual(runtime_events[0]["model_size"], 3_300_000_000)
+        self.assertEqual(runtime_events[0]["runtime_size_vram"], 3_200_000_000)
+        chat = next(call for call in transport.calls if call[1].endswith("/api/chat"))
+        self.assertNotIn("num_ctx", chat[2]["payload"]["options"])
 
     def test_cloud_provider_responses_and_auth_headers(self):
         openai = FakeTransport({"choices": [{"message": {"content": "Ahoj"}}]})

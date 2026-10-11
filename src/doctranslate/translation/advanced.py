@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from doctranslate.ai.context_backend import ContextualRequest, require_contextual_capability
+from doctranslate.ai.contracts import BackendError
 from doctranslate.translate_core.contracts import XhtmlBlock, XhtmlDocument
 
 from .checkpoint import CheckpointState, JsonCheckpointStore, ValidatedSegment, canonical_identity
@@ -33,6 +34,11 @@ ADVANCED_OPTIONS_SCHEMA = {
     "glossary_limit": int,
     "occurrence_limit": int,
     "quality_policy": str,
+    "request_timeout": int,
+    "manage_ollama": bool,
+    "ollama_executable": str,
+    "ollama_port": int,
+    "ollama_context_length": int,
 }
 
 
@@ -162,6 +168,27 @@ class AdvancedTranslationEngine:
                 return tuple(result)
             except TranslationCancelled:
                 raise
+            except BackendError as exc:
+                if exc.code == "cancelled":
+                    raise TranslationCancelled(str(exc)) from exc
+                if exc.code == "request_timeout":
+                    if context.logger is not None:
+                        context.logger(
+                            "worker.translation.request_timeout",
+                            attempt=attempt + 1,
+                            max_attempts=max_attempts,
+                            error=str(exc),
+                        )
+                    if attempt + 1 >= max_attempts:
+                        raise TranslationError(
+                            "request_timeout",
+                            str(exc),
+                            retryable=False,
+                        ) from exc
+                    continue
+                last_error = exc
+                if not exc.retryable or attempt + 1 >= max_attempts:
+                    raise TranslationError("backend_error", str(exc), retryable=False) from exc
             except Exception as exc:
                 last_error = exc
                 if not getattr(exc, "retryable", False) or attempt + 1 >= max_attempts:
@@ -253,12 +280,25 @@ class AdvancedTranslationEngine:
             "glossary_limit": values.get("glossary_limit", 8),
             "occurrence_limit": values.get("occurrence_limit", 4),
             "quality_policy": values.get("quality_policy", "warn"),
+            "request_timeout": values.get("request_timeout", 1800),
+            "manage_ollama": values.get("manage_ollama", True),
+            "ollama_executable": values.get("ollama_executable", "ollama"),
+            "ollama_port": values.get("ollama_port", 11435),
+            "ollama_context_length": values.get("ollama_context_length"),
         }
         for name, value in limits.items():
-            if name != "quality_policy" and (type(value) is not int or value < 1):
+            if name in {"quality_policy", "manage_ollama", "ollama_executable"}:
+                continue
+            if name == "ollama_context_length" and value is None:
+                continue
+            if type(value) is not int or value < 1:
                 raise TranslationError("invalid_options", f"{name} must be a positive integer")
         if limits["quality_policy"] not in {"warn", "strict"}:
             raise TranslationError("invalid_options", "quality_policy must be warn or strict")
+        if not isinstance(limits["manage_ollama"], bool):
+            raise TranslationError("invalid_options", "manage_ollama must be boolean")
+        if not isinstance(limits["ollama_executable"], str) or not limits["ollama_executable"].strip():
+            raise TranslationError("invalid_options", "ollama_executable must be a non-empty string")
         return limits
 
     @staticmethod

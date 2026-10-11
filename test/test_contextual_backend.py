@@ -67,6 +67,7 @@ class ContextualBackendTests(unittest.TestCase):
         self.assertEqual(backend.contextual_capability().prompt_revision, "translategemma-prompt-v1")
         payload = transport.calls[0][2]
         self.assertEqual(payload["format"], "json")
+        self.assertNotIn("num_ctx", payload["options"])
         self.assertIn("approved terminology", payload["messages"][0]["content"])
         user = json.loads(payload["messages"][1]["content"])
         self.assertEqual(user["source"]["segments"][0]["text"], "Hello")
