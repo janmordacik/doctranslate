@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p01-jobrunner-prvni-vystup.md
 group: translation/engine/contracts
@@ -76,3 +76,6 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+2026-10-11: Implementováno translation/contracts.py, translation/registry.py a veřejný export balíčku. Registry je explicitní, deterministický, bez dynamického discovery; validuje JSON options, typy, duplicate/unknown/unavailable a factory dostává dependencies.
+2026-10-11: Doplněna hraniční validace jazyků a target_variant. Cílené testy: 14 passed; celá offline sada: 161 passed, 4 subtests passed. git diff --check bez chyb. Kontrakt A19/UML se nezměnil; P03 navazuje základním enginem.
