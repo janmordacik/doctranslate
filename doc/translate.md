@@ -50,7 +50,7 @@ Aktuální produkční cesta je stále PDF → XHTML/HTML → PDF. Nový kontrak
 | TranslateGemma 12B | implementována verzovaná Ollama prompt strategie; lokální benchmark proti qwen3.8:27b proběhl, TranslateGemma byla na tomto stroji rychlejší; úplné kvalitativní hodnocení zůstává omezené na krátký fixture |
 | TranslateGemma 4B | strategie je implementována; model je dostupný v Ollamě a benchmark 4B/12B/Qwen byl dokončen |
 | Srovnání TranslateGemma/Qwen 3.8 | dokončeno pro 4B, 12B a qwen3.8:27b v [reportu](../tmp/translategemma-smoke/comparison-2026-10-11.md); doporučení je podmíněné krátkým fixture |
-| Náhled aktuálního překládaného bloku | implementováno a otestováno v [tasku 3-2026-10-11-gui-nahled-aktualniho-bloku.md](../tasks/3-2026-10-11-gui-nahled-aktualniho-bloku.md); dávkový snapshot bez streamování |
+| Náhled aktuálního překládaného bloku | implementováno a otestováno v [tasku 3-2026-10-11-gui-nahled-aktualniho-bloku.md](../tasks/done/3-2026-10-11-gui-nahled-aktualniho-bloku.md); dávkový snapshot bez streamování |
 | Vizuální regresní test PDF | odloženo |
 | GitHub push | odloženo; pracuje se lokálně |
 
@@ -349,7 +349,7 @@ translating a po validovaném výsledku jako translated; při chybě může obsa
 error. Náhled je omezen na 100 řádků a 12000 znaků, GUI jej zobrazuje readonly
 se scrollbarem a nezapisuje se do fronty, cache ani event logu. Nejde o tokenové
 streamování; aktualizace probíhá pouze na hranici dávky. Detailní UML kontrakt
-je v [tasku náhledu](../tasks/3-2026-10-11-gui-nahled-aktualniho-bloku.md).
+je v [tasku náhledu](../tasks/done/3-2026-10-11-gui-nahled-aktualniho-bloku.md).
 Běžné zápisy preview jsou navíc throttlované na nejvýše jeden zápis za 10 s.
 První preview nového jobu a terminální stav translated/error/stopped se zapíší
 ihned, aby se nezhoršila odezva ani diagnostika.

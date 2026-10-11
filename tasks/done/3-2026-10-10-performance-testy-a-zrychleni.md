@@ -1,5 +1,5 @@
-status: test
-last change: 2026-10-10
+status: done
+last change: 2026-10-11
 dependency: ../done/3-2026-10-10-integrace-modulu-a-regresni-checklist.md
 group: performance/benchmarking
 type: performance
@@ -115,5 +115,16 @@ statickým rozborem.
 runner tools/performance_benchmark.py. Režimy memory/checkpoint/adaptive mají
 regresní testy; offline sada má 92 úspěšných testů. Skutečný dlouhý benchmark
 referenčního 493stránkového PDF nebyl spuštěn, protože sazbu PDF provede uživatel.
-Task zůstává ve stavu test do dodání baseline reportů pro malé, střední a velké
-fixture.
+Task byl uzavřen v omezeném, explicitně ověřeném rozsahu PDF sazby.
+
+2026-10-11: Ověřeny reprodukovatelné baseline fixture o velikosti 3, 30 a 100
+stran v režimech memory, checkpoint a adaptive. Stostránkový běh skončil
+memory 3,83 s, checkpoint 4,36 s a adaptive 3,79 s; růst je přibližně lineární.
+Výsledky a reporty jsou v tmp/performance-100/.
+
+2026-10-11: Opraven report výkonu: po dokončení nyní uvádí output_exists,
+output_bytes a output_pages. Regresní testy výkonu prošly 13/13.
+
+2026-10-11: Uzavřen je PDF typesetting benchmark. Měření extrakce, AI backendu,
+cache a workeru zůstávají mimo tento uzavřený rozsah a mohou být samostatnými
+tasky.
