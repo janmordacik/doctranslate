@@ -495,3 +495,19 @@ V editaci Job vyberte zdrojový a cílový jazyk. Seznam stylů se filtruje podl
 cílového jazyka; auto zachová styl autora a explicitní profil aktivuje řízený
 převod registru nebo varianty. Změny se uloží až po stisknutí OK. Přímý převod
 v rámci stejného jazyka je povolen pouze s explicitním profilem.
+
+
+## 17. Srovnání překladových modulů
+
+Projekt nyní obsahuje dva oddělené režimy, které lze vybrat v jobu: basic
+(lineární dávkový překlad) a standardní advanced (bounded kontext, glosář,
+checkpoint a cílená validace). Advanced agentní relace je volitelná a vyžaduje
+výslovné ověření schopnosti konkrétního provideru/modelu; název modelu sám o
+sobě dostupnost nepotvrzuje.
+
+Interní akceptační benchmark používá stejný fixture pro oba moduly a zapisuje
+čas, stav, text, tokenová metadata, počet oprav a quality metadata do JSONL.
+Offline výsledek nad fake backendem slouží pouze ke kontrole kontraktu a režie.
+Nezaměňujte jej za jazykové hodnocení nebo živý výkon Ollamy. Pro skutečné
+srovnání je nutné samostatně spustit živý běh s konkrétním modelem a výsledek
+ručně zkontrolovat.

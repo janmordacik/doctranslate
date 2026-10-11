@@ -1567,8 +1567,8 @@ sequenceDiagram
 1. P01–P04: regresní ochrana, kontrakt/basic a bezpečné checkpointy.
 2. P05–P08: bridge, JSON a výběr v CLI/GUI; basic v produkčním workeru.
 3. P09–P13: standardní advanced s glosářem a bounded context.
-4. P14–P16: volitelné agentní nástroje/backend/relace, bez plného druhého průchodu.
-5. P17: integrační a výkonové srovnání na krátkých unikátních vzorcích.
+4. P14–P16: implementované volitelné agentní nástroje/backend/relace, bez plného druhého průchodu.
+5. P17: implementované offline integrační a výkonové srovnání na krátkých unikátních vzorcích.
 
 Po každém leaf tasku cílené offline testy a diff review, na konci fáze celá sada.
 Live EN→CS smoke a GUI ruční ověření jsou explicitní acceptance kroky,
@@ -1581,3 +1581,34 @@ připojit důkaz a vrátit návrh k review místo improvizované náhrady.
 
 Hotový první návrh není hotová implementace. Odhady v implementačním tasku
 jsou zbývající engineering práce, ne garantovaná délka běhu Luny.
+
+
+### T07 Standardní a extended akceptační benchmark
+
+Aktuální implementace má offline benchmark kontrakt; live kvalita a throughput se
+nesimulují. Jeden fixture se předá oběma engine runnerům, výsledky se nemíchají
+s legacy PDF sazbou a JSONL je strojově zpracovatelný.
+
+~~~mermaid
+sequenceDiagram
+    actor Tester
+    participant Fixture
+    participant Runner as EngineBenchmarkRunner
+    participant Basic
+    participant Advanced
+    participant Report as JSONL
+    Tester->>Fixture: load one immutable fixture
+    loop basic and advanced
+        Runner->>Basic: same fixture and options
+        Runner->>Advanced: same fixture and options
+        alt success
+            Basic-->>Runner: text, metrics and quality
+            Advanced-->>Runner: text, metrics and quality
+        else failure
+            Basic-->>Runner: typed error sample
+            Advanced-->>Runner: typed error sample
+        end
+    end
+    Runner->>Report: fixture hash, time, tokens, repairs, quality
+    Report-->>Tester: offline comparison data
+~~~

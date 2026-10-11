@@ -552,8 +552,20 @@ Implementované moduly v src/doctranslate nyní poskytují:
 - verzované AI profily, API-key/env/keyring hranici a Gemini loopback OAuth;
 - restartovatelný JobRunner s cache identity a checkpointy;
 - provider/profile/model volby v CLI, workeru a GUI.
+- standardní AdvancedTranslationEngine s bounded planner/context/checkpoint/glossary tokem;
+- allowlisted MemoryTools, explicitní AgentBackend a bounded per-segment agentní relace;
+- provider-neutral EngineBenchmarkRunner pro srovnání basic/advanced na stejném fixture s JSONL metadaty.
 
 Produkční PDF překlad zůstává zpětně kompatibilní přes legacy bridge; cílové adaptéry jsou veřejná hranice pro další migraci sazebních heuristik. Offline stav a limity ověření jsou v modularization-analysis.md.
+
+### Akceptační benchmark překladových modulů
+
+P17 poskytuje interní EngineBenchmarkRunner pro porovnání basic a standardního
+advanced engine nad jedním neměněným fixture. Každý vzorek nese fixture hash,
+čas, stav, text, tokenovou bilanci, počet oprav, quality stav a metriky engine.
+Výstup jsonl() je určen pro další zpracování; offline testy používají fake
+executors a neprokazují jazykovou kvalitu ani živý throughput Ollamy. Živý
+EN→CS běh a ruční hodnocení zůstávají samostatným provozním krokem.
 
 ### Pravidla názvů souborů
 
@@ -585,7 +597,7 @@ Statická diagnostika referenčního běhu zjistila 493 stran, přibližně 5 80
 - Pracovní kopie: C:/Users/mordacik/Documents/Codex/doctranslate.
 - Zdrojový balíček: src/doctranslate/; jediný uživatelský launcher je translate.cmd.
 - Projektová dokumentace je v doc/; trvalá testovací data jsou v test/mock/; tmp/ obsahuje pouze lokální pracovní artefakty. Runtime fronta a výchozí výstupy jsou v nastaveném workdir.
-- Poslední ověřená offline regrese: python -m pytest test -q — 156 testů a 4 subtesty.
+- Poslední ověřená offline regrese: python -m pytest test -q — 245 testů a 4 subtesty.
 - Další preflight: python -m compileall -q src/doctranslate a git diff --check.
 - Živá Ollama, cloudové API, dlouhý benchmark a vizuální kontrola PDF zůstávají samostatnými provozními kroky; offline testy je nepotřebují.
 - Lokální agent se v tomto projektu nepoužívá; implementace a validace probíhají přímo v repozitáři.

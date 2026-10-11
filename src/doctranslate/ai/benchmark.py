@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from statistics import median
 import threading
 import time
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable, Mapping
 
 from .benchmark_fixtures import BenchmarkFixture
 from .contracts import AiBackend, BackendError
@@ -55,6 +55,134 @@ class BenchmarkResult:
             if sample.run_index > 0 and sample.wall_ms is not None
         ]
         return float(median(values)) if values else None
+
+
+
+@dataclass(frozen=True)
+class EngineBenchmarkSample:
+    """One comparable run of a translation engine over one unique fixture."""
+
+    engine_id: str
+    fixture_id: str
+    fixture_hash: str
+    run_index: int
+    status: str
+    text: str = ""
+    wall_ms: float | None = None
+    token_count: int | None = None
+    repair_count: int | None = None
+    quality: str = "unknown"
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+    error_code: str | None = None
+
+
+@dataclass(frozen=True)
+class EngineBenchmarkResult:
+    samples: tuple[EngineBenchmarkSample, ...]
+
+    def jsonl(self) -> str:
+        import json
+
+        return "".join(
+            json.dumps(sample.__dict__, ensure_ascii=False, sort_keys=True) + "\n"
+            for sample in self.samples
+        )
+
+
+class EngineBenchmarkRunner:
+    """Compare injected basic/advanced callables without live provider assumptions."""
+
+    def __init__(
+        self,
+        engines: Mapping[str, Callable[[BenchmarkFixture], object]],
+        *,
+        repeats: int = 1,
+        clock: Callable[[], float] = time.perf_counter,
+    ) -> None:
+        if repeats < 1:
+            raise ValueError("repeats must be positive")
+        if not engines:
+            raise ValueError("at least one engine is required")
+        self.engines = dict(engines)
+        self.repeats = repeats
+        self.clock = clock
+
+    def run(self, fixture: BenchmarkFixture) -> EngineBenchmarkResult:
+        samples: list[EngineBenchmarkSample] = []
+        for engine_id, runner in self.engines.items():
+            for run_index in range(self.repeats):
+                started = self.clock()
+                try:
+                    result = runner(fixture)
+                    wall_ms = (self.clock() - started) * 1000
+                    text, token_count, repairs, quality, metadata = self._extract(result)
+                    samples.append(
+                        EngineBenchmarkSample(
+                            engine_id,
+                            fixture.id,
+                            fixture.content_hash,
+                            run_index,
+                            "ok",
+                            text=text,
+                            wall_ms=wall_ms,
+                            token_count=token_count,
+                            repair_count=repairs,
+                            quality=quality,
+                            metadata=metadata,
+                        )
+                    )
+                except Exception as exc:
+                    samples.append(
+                        EngineBenchmarkSample(
+                            engine_id,
+                            fixture.id,
+                            fixture.content_hash,
+                            run_index,
+                            "error",
+                            wall_ms=(self.clock() - started) * 1000,
+                            error_code=type(exc).__name__,
+                        )
+                    )
+        return EngineBenchmarkResult(tuple(samples))
+
+    @staticmethod
+    def _extract(result: object) -> tuple[str, int | None, int | None, str, Mapping[str, Any]]:
+        if isinstance(result, str):
+            return result, None, None, "unknown", {}
+        document = getattr(result, "document", None)
+        blocks = getattr(document, "blocks", ()) if document is not None else ()
+        text = "\n\n".join(
+            str(getattr(block, "text", "")) for block in blocks
+        ) if blocks else str(getattr(result, "text", ""))
+        metrics = getattr(result, "metrics", None)
+        metadata: dict[str, Any] = {}
+        token_count = None
+        repairs = None
+        if metrics is not None:
+            metadata = {
+                "translator_id": getattr(metrics, "translator_id", None),
+                "translator_revision": getattr(metrics, "translator_revision", None),
+                "batches": getattr(metrics, "batches", None),
+                "segments": getattr(metrics, "segments", None),
+                "ai_calls": getattr(metrics, "ai_calls", None),
+                "resumed": getattr(metrics, "resumed", None),
+                "prompt_tokens": getattr(metrics, "prompt_tokens", None),
+                "output_tokens": getattr(metrics, "output_tokens", None),
+            }
+            accounting = getattr(metrics, "token_accounting", {})
+            if isinstance(accounting, Mapping):
+                numeric = [value for value in accounting.values() if isinstance(value, int)]
+                token_count = sum(numeric) if numeric else None
+                metadata["token_accounting"] = dict(accounting)
+            prompt_tokens = metadata["prompt_tokens"]
+            output_tokens = metadata["output_tokens"]
+            if isinstance(prompt_tokens, int) and isinstance(output_tokens, int):
+                token_count = prompt_tokens + output_tokens
+            repairs = getattr(metrics, "revisions", None)
+        warnings = tuple(getattr(result, "warnings", ()) or ())
+        quality = "warnings" if warnings else ("ok" if text.strip() else "unknown")
+        metadata["warnings"] = list(warnings)
+        return text, token_count, repairs, quality, metadata
 
 
 class BenchmarkRunner:

@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p08-gui-cli-volba-modulu.md, 3-2026-10-11-pm-p13-advanced-standard-engine.md
 group: quality/translation-engine/standard
@@ -69,12 +69,31 @@ ověření mimo offline testy uvést jako samostatný krok, nikoli tvrdit hotov�
 
 ## Restart a comments
 
-S01: created
-S02: created
-S03: created
-Actual time: unavailable
-Actual logical lines: unavailable
-Actual tokens: unavailable
+S01: done
+S02: done
+S03: done
+Actual time: not measured; completed in one bounded implementation pass
+Actual logical lines: approximately 407 including 215 integration-test lines, 130 benchmark lines and documentation; above estimate due mixed-engine coverage
+Actual tokens: not measured
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P17 implementován. Přidán EngineBenchmarkRunner pro basic/advanced
+nad jedním fixture hash, s časem, textem, tokenovou bilancí, počtem oprav,
+quality stavem a serializací JSONL. Stávající Ollama modelový benchmark zůstal
+beze změny.
+
+2026-10-11: Přidána offline integrační sada pro WorkerTranslationDispatcher,
+smíšenou volbu basic/advanced, cancel, failure, stejný fixture a failure
+izolaci. Dokumentace technical-overview, user-manual a modularization-analysis
+obsahuje aktuální implemented/proposed stav a Mermaid proces T07.
+
+2026-10-11: Validace: cílené testy 13 passed; celá sada 245 passed, 4 subtests
+passed; compileall src/doctranslate prošel; git diff --check bez nálezu.
+Mermaid byl ověřen textově; v prostředí nebyl k dispozici renderer.
+
+2026-10-11: Omezení pro další task: benchmark runner je provider-neutral API,
+nepřidává nový CLI switch pro engine comparison a live EN→CS quality/throughput
+zůstává samostatným ručním během s Ollamou.
