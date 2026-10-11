@@ -256,11 +256,12 @@ apply_patch nedokázal načíst soubor v projektu a oznámil: path contains a re
 
 ### Ověřený workaround
 
-Nejprve ověřit skutečnou cestu pomocí Node fs.realpath. Pokud je cesta dostupná, použít opatrný textový zápis přes Node fs po předchozím načtení a přesné náhradě obsahu; následně ověřit diff.
+Nejprve ověřit skutečnou cestu pomocí Node fs.realpath. Pro editaci použít apply_patch executable podle receptu 2 s relativním cílem a cwd nastaveným na projekt. Cestu executable převzít z aktuálního launcheru, patch předat jako samostatný argument přes execFile. Neobcházet sandbox odmítnutí a nepoužívat přímý fs.writeFile jako náhradu projektové editace.
 
 ### Stav
 
 Dokumentační změna A19 byla zapsána bez zásahu do produkčního kódu.
+2026-10-11: Recept zpřesněn: dvě části parametrického odhadového modelu v estimation_metrics_draft.md (původní název před přejmenováním) byly úspěšně zapsány samotným apply_patch executable s cwd projektu. Návratový kód 0, obsah znovu načten; shell helper_unknown_error nadále obsluhovat receptem 1.
 
 
 ## 2026-10-11: Node REPL zápis větších zdrojových souborů
@@ -290,3 +291,35 @@ z process.env skončil chybou process is not defined.
 
 Pro subprocess použít explicitní minimální prostředí, například env s jedinou
 položkou PYTHONPATH nastavenou na absolutní src, a nepotřebné proměnné nepřebírat.
+
+## 2026-10-11: Binding lokálního bloku v Node REPL
+
+- Příznak: Identifier 'first' has already been declared nebo metpatchExe is not defined při použití bindingu z předchozího bloku. Operace se nespustila.
+- Postup: nezávislý výpočet uzavřít do vlastního bloku s const/let; hodnoty potřebné v dalším volání předat výslovně. Nespolehat na přetrvání bindingu vytvořeného v lokálním bloku. Patch text předávat přes JSON.stringify jako JavaScript argument, bez template interpolace jeho obsahu.
+- Ověření: výpočet dopředného fitu zopakován v lokálním bloku a apply_patch spuštěn s explicitní ověřenou cestou executable; obě operace dokončeny.
+- Stav: funkční workaround.
+
+## 2026-10-11: Pořadí hunků apply_patch
+
+- Příznak: Failed to find expected lines, přestože přesný cílový řádek v souboru existuje.
+- Příčina: více hunků stejného souboru bylo sestaveno v jiném pořadí než jejich cílové pozice. Vyhledávání kontextu pokračuje vpřed.
+- Postup: hunks seřadit podle výskytu ve zdrojovém souboru nebo rozdělit do samostatných sekvenčních patchů. Po selhání znovu načíst obsah a ověřit, zda došlo k částečné změně.
+- Ověření: úpravy historických poznámek estimation_metrics_draft.md po seřazení hunků dokončeny s kódem 0; původní neúspěšný patch nic nezměnil.
+- Stav: funkční workaround.
+
+## 2026-10-11: Aktualizace pracovního návrhu odhadů
+
+- exec_command opět selhal na helper_unknown_error: setup refresh had errors; použit recept 1 (Node execFile) a recept 2 (apply_patch s cwd projektu).
+- Čtení odhadnuté cesty doc/implementation.md skončilo ENOENT. Ověřený postup: nejprve rg --files doc tasks; pravidla tasků jsou v doc/project-structure-and-tasks.md. Neodvozovat existenci dokumentu z dřívějšího návrhu názvu.
+
+## 2026-10-11: Node REPL a require / PowerShell regex
+
+- Příznak: Node REPL odmítl require is not defined. Použití globálního CommonJS
+  require zde není dostupné.
+- Workaround: načíst modul přes await import("node:child_process") uvnitř
+  lokálního bloku a spouštět powershell přes execFileSync.
+- Příznak: Select-String nebo rg skončil chybou regulárního výrazu při hledání
+  textu s kulatými závorkami.
+- Workaround: pro doslovné hledání použít rg -F nebo escapovat závorky v
+  Select-String -Pattern; po chybě zkontrolovat, že se soubor nezměnil.
+- Stav: funkční workaround.

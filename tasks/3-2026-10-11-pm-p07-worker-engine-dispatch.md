@@ -26,6 +26,7 @@ Worker.run_job, control monitor, translate.main/run_translation/run_html_typeset
 - src/doctranslate/queue_worker.py
 - src/doctranslate/translate.py
 - src/doctranslate/integration/translation_bridge.py
+- src/doctranslate/translation/composition.py
 - test/test_translation_worker.py (nový)
 
 Nové cesty jsou návrh; existující obsah nejprve ověřit. Žádné změny v tmp,
@@ -82,4 +83,6 @@ dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
 
 2026-10-11: Validace: cílené testy 53 passed; celá sada 182 passed, 4 subtests passed. git diff --check bez nálezu.
 
-2026-10-11: Známé omezení / follow-up: standardní produkční composition root zatím registry a engine runner nevytváří, takže základní engine v běžném legacy workeru používá kompatibilní translate.main. Skutečné dosazení XHTML/PDF runneru do composition rootu je samostatná integrační práce; test seam je připraven a brání nechtěnému fallbacku advanced modulů.
+2026-10-11: Dodatečný integrační krok dokončen: translation.composition je produkční composition root. Worker jej lazy vytvoří pro advanced job, Ollama je vytvořena z konfigurace jobu, checkpoint/glosář jsou oddělené podle výstupu a legacy PDF bridge převádí translatable span fragments zpět do HTML pro stávající typesetter. Basic joby zůstávají na legacy cestě i po předchozím advanced jobu.
+
+2026-10-11: Validace po integraci: python -m pytest test -q = 247 passed, 4 subtests passed; python -m compileall -q src/doctranslate = passed; git diff --check = passed. Živý Ollama request a sazba PDF nebyly spuštěny.

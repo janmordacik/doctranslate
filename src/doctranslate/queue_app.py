@@ -39,14 +39,14 @@ LANGUAGE_CHOICES = ("en", "cs", "de", "es", "fr", "it", "pl", "sk")
 OLLAMA_URL = os.environ.get("TRANSLATE_OLLAMA_URL", "http://localhost:11434").rstrip("/")
 DEFAULT_MODEL = os.environ.get("TRANSLATE_MODEL", "qwen3.8:27b")
 
-# The catalog is deliberately explicit: unavailable modules remain visible in
-# the status text, but the GUI cannot select them until a worker composition
-# root registers a production runner.
+# The catalog is deliberately explicit.  The production worker registers the
+# advanced runner lazily per job; provider/model availability is then reported
+# as a normal job failure instead of disabling the module in the GUI.
 TRANSLATION_MODULES = (
     {"id": "basic", "label": "Basic", "available": True,
      "reason": "linear translation engine"},
-    {"id": "advanced", "label": "Advanced", "available": False,
-     "reason": "worker runner is not registered yet"},
+    {"id": "advanced", "label": "Advanced", "available": True,
+     "reason": "contextual translation with checkpoint and glossary"},
 )
 
 

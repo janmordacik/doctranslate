@@ -94,7 +94,7 @@ class TranslationWorkerTests(unittest.TestCase):
         self.assertEqual(runner_calls, [])
         self.assertEqual(saved_state, "done")
 
-    def test_advanced_without_dispatch_is_failed_not_silently_basic(self):
+    def test_advanced_uses_production_dispatch_and_reports_input_error(self):
         with tempfile.TemporaryDirectory() as folder:
             queue_path = Path(folder) / "queue.json"
             store = QueueStore(queue_path)
@@ -106,7 +106,8 @@ class TranslationWorkerTests(unittest.TestCase):
             saved = store.jobs()[0]
 
         self.assertEqual(saved["state"], "failed")
-        self.assertIn("engine_unavailable", saved["error"])
+        self.assertNotIn("engine_unavailable", saved["error"])
+        self.assertIn("FileDataError", saved["error"])
 
     def test_typed_cancellation_keeps_job_restartable(self):
         def runner(engine, options, context):

@@ -14,10 +14,10 @@ from doctranslate.translate import cli_parser, entrypoint
 
 
 class TranslationSelectionTests(unittest.TestCase):
-    def test_catalog_exposes_basic_and_explains_unavailable_advanced(self):
+    def test_catalog_exposes_production_advanced_module(self):
         catalog = {item["id"]: item for item in translation_module_catalog()}
         self.assertTrue(catalog["basic"]["available"])
-        self.assertFalse(catalog["advanced"]["available"])
+        self.assertTrue(catalog["advanced"]["available"])
         self.assertTrue(catalog["advanced"]["reason"])
 
     def test_make_job_persists_translator_selection(self):

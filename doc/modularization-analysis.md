@@ -1,7 +1,7 @@
 # Modularizace dokumentů a AI poskytovatelů — implementační analýza
 
 Datum: 2026-10-10.
-Stav: M01–M14 implementováno a offline ověřeno; živé cloud/OAuth a vizuální PDF ověření nebylo spuštěno.
+Stav: M01–M14 a produkční registrace advanced worker runneru implementováno a offline ověřeno; živé Ollama/cloud/OAuth a vizuální PDF ověření nebylo spuštěno.
 Rozsah: formátové adaptéry, XHTML, AI backendy, profily, autentizace, CLI/GUI a worker.
 Autorita: schválené požadavky uživatele v chatu. Níže uvedená technická rozhodnutí konkretizují implementaci.
 
@@ -41,7 +41,7 @@ Statická revize souborů 2026-10-10, bez nového běhu překladu nebo sazby.
 
 | Oblast | Aktuální implementace | Migrační potřeba |
 |---|---|---|
-| Production | Worker.run_job nastavuje translate.py globály a main | JobRunner + immutable JobSpec/RunContext |
+| Production | Basic zůstává legacy; advanced worker lazy sestaví composition root, registry, Ollama backend, checkpoint/glosář a XHTML/PDF bridge | Postupná migrace basic do stejného runneru |
 | PDF input | PdfInputAdapter používá get_text("blocks"), text/bbox | Převést propracované extract_blocks/make_block, styly, TOC, prostředky |
 | PDF output | Adapter vyžaduje injected renderer; sazba v translate.py | Samostatně sestavený PDF modul |
 | XHTML | html, blocks[].markup a blocks[].text mohou být nezávislé | Jeden autoritativní obsah, codec a odvozené views |
@@ -86,6 +86,64 @@ test/test_*; test/mock/               offline testy a trvalé malé podklady
 ~~~
 
 Jde o cílové členění; malé sousední moduly lze sloučit při zachování hranic. Backend neimportuje tkinter; core neimportuje PyMuPDF ani provider SDK. translate.py během migrace interní bridge, nakonec tenká facade. V rootu nevytvářet Python wrappery.
+
+### A03b Aktuální produkční registrace advanced runneru
+
+Advanced modul už není pouze testovací seam. queue_worker.Worker jej při prvním
+advanced jobu sestaví přes translation.composition a předá mu worker, jobovou
+konfiguraci a legacy translate bridge. Basic joby zůstávají kompatibilní na
+původní cestě. Fragmentová hranice je důležitá: advanced model překládá textové
+span fragments a restore_text_translation znovu sestaví chráněný markup před
+zápisem HTML/PDF. Provider/model chyba se projeví jako chyba konkrétního jobu,
+nikoli jako stav modulu unavailable v GUI.
+
+~~~mermaid
+classDiagram
+    class Worker
+    class ProductionTranslationRuntime
+    class TranslationEngineRegistry
+    class AdvancedTranslationEngine
+    class OllamaBackend
+    class JsonCheckpointStore
+    class JsonGlossaryStore
+    class LegacyPdfBridge
+    Worker --> ProductionTranslationRuntime : lazy advanced job
+    ProductionTranslationRuntime --> TranslationEngineRegistry : registers advanced
+    ProductionTranslationRuntime --> AdvancedTranslationEngine : creates per job
+    AdvancedTranslationEngine --> OllamaBackend : contextual batches
+    AdvancedTranslationEngine --> JsonCheckpointStore : resume
+    AdvancedTranslationEngine --> JsonGlossaryStore : memory
+    ProductionTranslationRuntime --> LegacyPdfBridge : XHTML fragments to HTML/PDF
+~~~
+
+~~~mermaid
+sequenceDiagram
+    participant W as Worker
+    participant C as ProductionTranslationRuntime
+    participant R as TranslationEngineRegistry
+    participant A as AdvancedTranslationEngine
+    participant O as OllamaBackend
+    participant B as Legacy PDF bridge
+    W->>C: build runtime for advanced job
+    C->>R: register advanced factory
+    W->>R: create(job, TranslationOptions)
+    R->>A: create backend, checkpoint and glossary
+    W->>C: run(A, options, context)
+    C->>B: extract PDF blocks and span fragments
+    loop bounded contextual batches
+        A->>O: translate_batch(text segments + context)
+        O-->>A: validated segment results
+        A->>A: checkpoint accepted segments
+    end
+    A-->>C: translated XHTML fragment document
+    C->>B: restore markup and write translated HTML
+    opt phase is both
+        C->>B: typeset HTML to PDF
+    end
+    alt provider or input error
+        C-->>W: failed job with diagnostic
+    end
+~~~
 
 ~~~mermaid
 classDiagram

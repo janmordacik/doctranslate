@@ -128,6 +128,7 @@ class Worker:
         self.worker_lock = self.store.path.with_name("worker.lock")
         self.engine_registry = engine_registry
         self.engine_runner = engine_runner
+        self.production_runtime = False
 
     def write_state(self, state: str, emit_event: bool = True, **extra) -> None:
         """Persist diagnostic state and mirror it as a structured event."""
@@ -380,13 +381,39 @@ class Worker:
             translate.FIRST_PAGE = options.first_page
             translate.LAST_PAGE = options.last_page
             translate.configure_phases(options.phase, html_file)
+            # The production composition root is lazy: basic jobs retain the
+            # legacy path, while an advanced job gets the concrete registry
+            # and runner only after the job configuration is fully applied.
+            if (
+                options.translator_id != "basic"
+                and self.engine_registry is None
+                and self.engine_runner is None
+            ):
+                from .translation.composition import build_worker_translation_runtime
+
+                self.engine_registry, self.engine_runner = (
+                    build_worker_translation_runtime(self, translate)
+                )
+                self.production_runtime = True
             if options.phase == "pdf":
                 self.logger.event("worker.translation.render_only", job_id=self.current_job_id)
                 translate.main(self.cancel_event)
-            elif self.engine_registry is not None:
+            elif (
+                self.engine_registry is not None
+                and (
+                    options.translator_id != "basic"
+                    or not self.production_runtime
+                )
+            ):
                 dispatcher = WorkerTranslationDispatcher(self.engine_registry)
                 engine, descriptor, translation_options = dispatcher.create(
-                    job, {"worker": self, "translate": translate}
+                    job,
+                    {
+                        "worker": self,
+                        "translate": translate,
+                        "job": job,
+                        "options": options,
+                    },
                 )
                 self.logger.event(
                     "worker.translation.engine.selected",
