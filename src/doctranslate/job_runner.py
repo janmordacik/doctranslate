@@ -158,11 +158,11 @@ class JobRunner:
                 requests, cancel_event=context.cancel_event
             )
             values = {item.segment_id: item.text for item in results}
+            completed.update(values)
             document = document.with_blocks([
                 block.translated(completed[block.block_id]) if block.block_id in completed else block
                 for block in document.blocks
             ])
-            completed.update(values)
             self._save_checkpoint(context.checkpoint_path, identity, completed)
             document = replace(
                 document,

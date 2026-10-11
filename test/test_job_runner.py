@@ -22,8 +22,10 @@ class InputAdapter:
 class OutputAdapter:
     def __init__(self):
         self.received = None
+        self.writes = []
     def write(self, document, target):
         self.received = (document, target)
+        self.writes.append((document, target))
         Path(target).write_text(document.blocks[0].text, encoding="utf-8")
         return target
 
@@ -60,7 +62,9 @@ class JobRunnerTests(unittest.TestCase):
             checkpoint = Path(folder) / "checkpoint.json"
             first_backend = Backend()
             first = runner.run(spec, RunContext(Path(folder), checkpoint_path=checkpoint), backend=first_backend)
+            first_document = output_adapter.writes[0][0]
             second = runner.run(spec, RunContext(Path(folder), checkpoint_path=checkpoint), backend=Backend())
+        self.assertEqual(first_document.blocks[0].text, "Ahoj")
         self.assertEqual(first.translated_blocks, 1)
         self.assertEqual(second.resumed_blocks, 1)
         self.assertEqual(output_adapter.received[0].blocks[0].text, "Ahoj")

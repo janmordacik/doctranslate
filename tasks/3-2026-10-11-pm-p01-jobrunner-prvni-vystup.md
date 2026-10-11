@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md
 group: translation/engine/regression
@@ -77,3 +77,6 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+2026-10-11: S02 reprodukce přidala kontrolu prvního output_adapter.write; před opravou test selhal: výstup obsahoval Hello místo Ahoj.
+2026-10-11: S01 opraven JobRunner tak, aby po completed.update(values) aplikoval nové i obnovené překlady do dokumentu před output_adapter.write. S03: cílená sada testů prošla 11 passed; git diff --check bez chyb. UML/workflow se nezměnily.
