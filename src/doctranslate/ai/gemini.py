@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .auth import ApiKeyAuth
+from .auth import ApiKeyAuth, OAuthTokenAuth
 from .providers import HttpAiBackend
 
 
@@ -15,18 +15,23 @@ class GeminiBackend(HttpAiBackend):
     def __init__(self, model: str, *, base_url: str = "https://generativelanguage.googleapis.com/v1beta", **kwargs):
         super().__init__(model, base_url=base_url, **kwargs)
 
+    def _auth_headers(self) -> dict[str, str]:
+        if self.auth is None:
+            raise RuntimeError("Gemini API requires credentials")
+        token = self.auth.resolve(self.credential_store)
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        if isinstance(self.auth, OAuthTokenAuth):
+            headers["Authorization"] = "Bearer " + token
+        else:
+            headers["x-goog-api-key"] = token
+        return headers
     def _call_text(self, text: str, source_language: str, target_language: str) -> str:
         if self.auth is None:
             raise RuntimeError("Gemini API requires an API-key credential reference")
-        key = self.auth.resolve(self.credential_store)
         value = self._post(
             "/models/" + self.model + ":generateContent",
             {"contents": [{"parts": [{"text": f"Translate from {source_language} to {target_language}. Return only translation.\n{text}"}]}]},
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "x-goog-api-key": key,
-            },
+            headers=self._auth_headers(),
         )
         if not isinstance(value, dict):
             raise self._invalid()
@@ -38,6 +43,21 @@ class GeminiBackend(HttpAiBackend):
             raise self._invalid()
         parts = content["parts"]
         return self._string(parts[0].get("text") if parts and isinstance(parts[0], dict) else None, "candidates[0].content.parts[0].text")
+    def list_models(self) -> tuple[str, ...]:
+        if self.auth is None:
+            raise RuntimeError("Gemini API requires an API-key credential reference")
+        value = self._get(
+            "/models",
+            headers=self._auth_headers(),
+        )
+        data = value.get("models") if isinstance(value, dict) else None
+        if not isinstance(data, list):
+            raise self._invalid_models()
+        return tuple(sorted(
+            str(item["name"]).removeprefix("models/").strip()
+            for item in data
+            if isinstance(item, dict) and str(item.get("name", "")).strip()
+        )) if isinstance(data, list) else ()
 
     @staticmethod
     def _invalid():

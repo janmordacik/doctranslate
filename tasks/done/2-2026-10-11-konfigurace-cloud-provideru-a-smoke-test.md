@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: ../done/2-2026-10-10-ai-profily-a-bezpecna-autentizace.md
 group: ai/providers/authentication
@@ -70,3 +70,13 @@ dlouhého překladu. Chyby konfigurace se nesmí projevit až po zahájení jobu
 2026-10-11: Task vytvořen na základě praktického ověření GUI. Cloudové
 providery mají offline backendové testy, ale workflow Login/Configuration/model
 selection/credential entry/probe není dokončené a nebylo ověřeno live.
+
+2026-10-11: Implementováno. Registry nyní publikuje capability metadata pro
+konfiguraci, login a discovery; dialog pro OpenAI/Gemini/Claude umožňuje
+endpoint, model, credential reference, maskovaný API key, bezpečné uložení a
+Test connection. Probe používá pouze GET model discovery bez dokumentového
+textu a vrací stav, latenci a bezpečný remedy. GUI a worker používají společný
+credential/profile resolver; job model se aplikuje jako profilový override.
+Přidány offline fake-transport testy pro úspěch, model_not_found, auth_required,
+rate_limited, service_unavailable, Gemini OAuth bearer, secret safety a secure
+profile persistence; live smoke nebyl spuštěn bez credentials uživatele.

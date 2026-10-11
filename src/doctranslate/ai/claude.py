@@ -37,6 +37,16 @@ class ClaudeBackend(HttpAiBackend):
             raise self._invalid()
         content = value["content"]
         return self._string(content[0].get("text") if content and isinstance(content[0], dict) else None, "content[0].text")
+    def list_models(self) -> tuple[str, ...]:
+        value = self._get("/v1/models", headers=self._headers())
+        data = value.get("data") if isinstance(value, dict) else None
+        if not isinstance(data, list):
+            raise self._invalid_models()
+        return tuple(sorted(
+            str(item["id"]).strip()
+            for item in data
+            if isinstance(item, dict) and str(item.get("id", "")).strip()
+        )) if isinstance(data, list) else ()
 
     @staticmethod
     def _invalid():

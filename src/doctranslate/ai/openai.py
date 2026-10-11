@@ -33,6 +33,16 @@ class OpenAIBackend(HttpAiBackend):
         if not isinstance(message, dict):
             raise self._invalid()
         return self._string(message.get("content"), "choices[0].message.content")
+    def list_models(self) -> tuple[str, ...]:
+        value = self._get("/models")
+        data = value.get("data") if isinstance(value, dict) else None
+        if not isinstance(data, list):
+            raise self._invalid_models()
+        return tuple(sorted(
+            str(item["id"]).strip()
+            for item in data
+            if isinstance(item, dict) and str(item.get("id", "")).strip()
+        )) if isinstance(data, list) else ()
 
     @staticmethod
     def _invalid():

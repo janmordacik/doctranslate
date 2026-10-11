@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+from time import perf_counter
 from typing import Any, Mapping, Sequence
 
 from .auth import ApiKeyAuth, CredentialStore, MemoryCredentialStore
-from .contracts import AiBackend, BackendError, SegmentRequest, SegmentResult
+from .contracts import AiBackend, BackendError, ProbeResult, SegmentRequest, SegmentResult
 from .transport import HttpResponse, UrllibTransport
 
 
@@ -50,6 +51,44 @@ class HttpAiBackend(AiBackend):
             for request in requests
         )
 
+
+    def list_models(self) -> tuple[str, ...]:
+        """Return provider model IDs when the provider exposes discovery."""
+        raise BackendError("model_discovery_unsupported", "Provider does not expose model discovery")
+
+    def probe(self) -> ProbeResult:
+        """Check endpoint, credentials and configured model without generation."""
+        started = perf_counter()
+        try:
+            models = self.list_models()
+            if models and self.model not in models:
+                return ProbeResult(
+                    self.provider_id, self.model, "model_not_found",
+                    (perf_counter() - started) * 1000,
+                    f"Configured model is not available: {self.model}",
+                    "Choose a model returned by the provider or verify its model ID.",
+                    models,
+                )
+            return ProbeResult(
+                self.provider_id, self.model, "available",
+                (perf_counter() - started) * 1000,
+                "Provider endpoint, credentials and model are available.",
+                models=models,
+            )
+        except BackendError as exc:
+            return ProbeResult(
+                self.provider_id, self.model, exc.code,
+                (perf_counter() - started) * 1000,
+                str(exc), exc.remedy,
+            )
+        except Exception:
+            return ProbeResult(
+                self.provider_id, self.model, "unavailable",
+                (perf_counter() - started) * 1000,
+                "Provider probe failed.",
+                "Check endpoint, network access and provider configuration.",
+            )
+
     def _call_text(self, text: str, source_language: str, target_language: str) -> str:
         raise NotImplementedError
 
@@ -85,11 +124,37 @@ class HttpAiBackend(AiBackend):
             raise BackendError("provider_error", f"Provider request failed with HTTP {response.status}")
         return response.body
 
+    def _get(self, suffix: str, headers: Mapping[str, str] | None = None) -> object:
+        response = self.transport.request(
+            "GET",
+            self.base_url + suffix,
+            headers=headers or self._headers(),
+            payload=None,
+            timeout=self.timeout,
+        )
+        if not isinstance(response, HttpResponse):
+            raise BackendError("invalid_transport", "Provider transport returned an invalid response")
+        if response.status in (401, 403):
+            raise BackendError("auth_required", "Provider authentication was rejected", remedy="configure credentials")
+        if response.status == 404:
+            raise BackendError("model_not_found", "Provider endpoint or model was not found", remedy="Check the endpoint and model ID.")
+        if response.status == 429:
+            raise BackendError("rate_limited", "Provider rate limit reached", retryable=True)
+        if response.status >= 500:
+            raise BackendError("service_unavailable", "Provider service is unavailable", retryable=True)
+        if response.status >= 400:
+            raise BackendError("provider_error", f"Provider request failed with HTTP {response.status}")
+        return response.body
+
     @staticmethod
     def _string(value: object, label: str) -> str:
         if not isinstance(value, str) or not value.strip():
             raise BackendError("invalid_response", f"Provider response has no {label}")
         return value
+
+    @staticmethod
+    def _invalid_models() -> BackendError:
+        return BackendError("invalid_response", "Provider model list response is invalid")
 
     @staticmethod
     def _json_segments(value: str, requests: Sequence[SegmentRequest]) -> tuple[SegmentResult, ...]:

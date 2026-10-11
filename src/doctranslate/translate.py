@@ -38,6 +38,7 @@ import base64
 import collections
 import contextlib
 import ctypes
+from dataclasses import replace
 import difflib
 import hashlib
 import http.client
@@ -821,15 +822,13 @@ def build_translation_client(cancel_event=None):
     """Select legacy Ollama or a configured provider at the composition root."""
     if PROVIDER_ID == "ollama":
         return OllamaClient(cancel_event)
-    from .ai import EnvCredentialStore, KeyringCredentialStore, ProfileStore
+    from .ai import ProfileStore, credential_store_for
     from .ai.registry import build_default_provider_registry
     profiles = ProfileStore(CONFIG_FILE)
     profile = profiles.get(PROFILE_ID or PROVIDER_ID)
-    credentials = (
-        EnvCredentialStore()
-        if profile.credential_ref and profile.credential_ref.startswith("env:")
-        else KeyringCredentialStore()
-    )
+    if MODEL and MODEL != profile.model:
+        profile = replace(profile, model=MODEL)
+    credentials = credential_store_for(profile)
     backend = build_default_provider_registry().create(profile, credentials)
     return ProviderBatchClient(backend, cancel_event)
 

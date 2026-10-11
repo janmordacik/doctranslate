@@ -115,6 +115,18 @@ class OAuthAuth(Protocol):
         ...
 
 
+
+@dataclass(frozen=True)
+class OAuthTokenAuth:
+    """Resolve a bearer token at request time without persisting it in a profile."""
+
+    oauth: OAuthAuth
+
+    def resolve(self, _store: CredentialStore) -> str:
+        token = self.oauth.token(interactive=False)
+        if not token:
+            raise RuntimeError("OAuth login is required for this provider")
+        return token
 def redact_secrets(value: object, secrets: tuple[str, ...] = ()) -> object:
     """Recursively redact known credentials before diagnostic serialization."""
     if isinstance(value, str):

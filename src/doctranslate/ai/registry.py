@@ -17,6 +17,10 @@ class ProviderDescriptor:
     label: str
     factory: Callable[[AiProfile, CredentialStore], object]
     capabilities: tuple[str, ...] = ("text", "segments")
+    auth_methods: tuple[str, ...] = ("none",)
+    configuration_supported: bool = False
+    login_supported: bool = False
+    model_discovery_supported: bool = False
 
 
 class ProviderRegistry:
@@ -68,12 +72,20 @@ def build_default_provider_registry() -> ProviderRegistry:
 
     def gemini(profile, credentials):
         from .gemini import GeminiBackend
-        from .auth import ApiKeyAuth
+        from .auth import ApiKeyAuth, OAuthTokenAuth
+        if profile.auth_type == "oauth":
+            from .oauth import GeminiOAuth
+            auth = OAuthTokenAuth(GeminiOAuth(
+                credential_ref=profile.credential_ref or "",
+                store=credentials,
+            ))
+        else:
+            auth = ApiKeyAuth(profile.credential_ref or "")
         return GeminiBackend(
             profile.model,
             base_url=profile.options.get("base_url", "https://generativelanguage.googleapis.com/v1beta"),
             credential_store=credentials,
-            auth=ApiKeyAuth(profile.credential_ref or ""),
+            auth=auth,
         )
 
     def claude(profile, credentials):
@@ -86,8 +98,17 @@ def build_default_provider_registry() -> ProviderRegistry:
             auth=ApiKeyAuth(profile.credential_ref or ""),
         )
 
-    registry.register(ProviderDescriptor("ollama", "Ollama", ollama))
-    registry.register(ProviderDescriptor("openai", "OpenAI API", openai))
-    registry.register(ProviderDescriptor("gemini", "Gemini API", gemini))
-    registry.register(ProviderDescriptor("claude", "Claude API", claude))
+    registry.register(ProviderDescriptor("ollama", "Ollama", ollama, model_discovery_supported=True))
+    registry.register(ProviderDescriptor(
+        "openai", "OpenAI API", openai, auth_methods=("api_key",),
+        configuration_supported=True, model_discovery_supported=True,
+    ))
+    registry.register(ProviderDescriptor(
+        "gemini", "Gemini API", gemini, auth_methods=("api_key", "oauth"),
+        configuration_supported=True, login_supported=True, model_discovery_supported=True,
+    ))
+    registry.register(ProviderDescriptor(
+        "claude", "Claude API", claude, auth_methods=("api_key",),
+        configuration_supported=True, model_discovery_supported=True,
+    ))
     return registry

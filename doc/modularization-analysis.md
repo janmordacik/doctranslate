@@ -747,3 +747,61 @@ Oficiální zdroje ověřené při návrhu 2026-10-10:
 2026-10-10: Dokumentační kontrola: 14 implementačních tasků + M15 provozní překážka, 1 class diagram a 8 sequence diagramů. Dependency jsou acyklické a existují. Kontrolována textová struktura Mermaid; lokální mmdc není dostupné, grafický render nebyl proveden. git diff --check prošel.
 2026-10-10: Implementace M01–M14 dokončena v jednom průchodu. Po jednotlivých fázích proběhly cílené testy; závěrečný offline běh \`python -m pytest test -q\` skončil \`81 passed\`, \`compileall\` i \`git diff --check\` prošly. Tasky byly přesunuty do \`tasks/done/\`; M15 a task lokálního agenta zůstaly záměrně otevřené.
 2026-10-11: Ověřeno, že globální ~/.codex/AGENTS.md již obsahuje sekci Software architecture documentation s povinnými Mermaid UML pravidly. M15 byl uzavřen a projektové odkazy aktualizovány; historické záznamy výše zůstávají beze změny.
+
+## A16 Implementovaná konfigurace cloud providerů a smoke test (2026-10-11)
+
+Cloud workflow je nyní oddělen od překladu dokumentu. GUI ukládá pouze profil a credential reference; API klíč jde do keyringu, případně lze použít explicitní env:NAME reference. Worker používá stejný resolver profilu a credential store jako GUI. Smoke test pouze načte seznam modelů a ověří endpoint, autentizaci a model; neposílá text dokumentu a negeneruje placený výstup.
+
+~~~mermaid
+classDiagram
+    class QueueGui
+    class ProviderDialog
+    class ProfileStore
+    class CredentialStore
+    class ProviderRegistry
+    class HttpAiBackend
+    class ProbeResult
+    class QueueWorker
+    QueueGui --> ProviderDialog : configure/test
+    ProviderDialog --> ProfileStore : save revision
+    ProviderDialog --> CredentialStore : store API key
+    QueueWorker --> ProfileStore : resolve profile
+    QueueWorker --> ProviderRegistry : create backend
+    ProviderRegistry --> HttpAiBackend : provider adapter
+    HttpAiBackend --> CredentialStore : resolve secret
+    HttpAiBackend --> ProbeResult : return safe status
+~~~
+
+~~~mermaid
+sequenceDiagram
+    participant UI as GUI
+    participant D as ProviderDialog
+    participant P as ProfileStore
+    participant C as CredentialStore
+    participant R as ProviderRegistry
+    participant B as ProviderBackend
+    UI->>D: Open Configuration
+    D->>D: Edit endpoint/model/reference/API key
+    opt API key entered
+        D->>C: Securely store key
+    end
+    UI->>D: Test connection
+    D->>R: Create backend from staged profile
+    R->>B: Provider-specific model discovery
+    B-->>D: status, latency, remedy, model IDs
+    alt Save
+        D->>P: Save non-secret profile revision
+        D-->>UI: Apply selected profile/model
+    else Cancel
+        D-->>UI: Discard staged values
+    end
+~~~
+
+Process index: provider configuration and smoke test = A16 sequence diagram above. Current implementation supports API-key configuration for OpenAI, Gemini and Claude, optional Gemini browser OAuth, provider-specific model discovery and offline fake-transport tests. Live cloud smoke was not run because credentials, network and possible provider charges require explicit user setup.
+
+### A16 acceptance evidence
+
+- test/test_cloud_provider_configuration.py: secure profile save, model discovery, missing model, authentication failure and registry capabilities.
+- python -m pytest test -q: 126 passed.
+- python -m compileall -q src and git diff --check: passed.
+- python -m pytest -q from repository root is not the project command: it also collects unrelated nested doctranslate/ tests and fails on external package/cache setup. The scoped command is python -m pytest test -q.

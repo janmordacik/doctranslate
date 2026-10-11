@@ -43,6 +43,23 @@ class SegmentResult:
     markup: str | None = None
 
 
+@dataclass(frozen=True)
+class ProbeResult:
+    """Safe result of a non-generative provider/model availability probe."""
+
+    provider_id: str
+    model: str
+    status: str
+    latency_ms: float | None = None
+    message: str = ""
+    remedy: str | None = None
+    models: tuple[str, ...] = ()
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "available"
+
+
 class AiBackend(Protocol):
     """Minimal contract used by the document pipeline, independent of format."""
 

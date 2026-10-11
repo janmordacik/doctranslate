@@ -4,6 +4,7 @@ from .contracts import (
     AiBackend,
     BackendError,
     SegmentRequest,
+    ProbeResult,
     SegmentResult,
 )
 from .auth import (
@@ -11,6 +12,7 @@ from .auth import (
     CredentialStore,
     EnvCredentialStore,
     MemoryCredentialStore,
+    OAuthTokenAuth,
     KeyringCredentialStore,
     OAuthAuth,
     redact_secrets,
@@ -18,10 +20,28 @@ from .auth import (
 from .profiles import AiProfile, ProfileError, ProfileStore
 from .translation import Prompt, PromptBuilder, SegmentTranslationPipeline, translate_text
 from .registry import ProviderDescriptor, ProviderRegistry, build_default_provider_registry
+from .provider_runtime import (
+    ChainedCredentialStore,
+    CredentialStoreUnavailable,
+    credential_store_for,
+    discover_profile_models,
+    probe_profile,
+    provider_backend,
+    save_profile_configuration,
+)
 from .oauth import BrowserOAuth, GeminiOAuth, OAuthTokens
 
 __all__ = [
+    "ProbeResult",
+    "ChainedCredentialStore",
+    "CredentialStoreUnavailable",
+    "credential_store_for",
+    "discover_profile_models",
+    "probe_profile",
+    "provider_backend",
+    "save_profile_configuration",
     "AiBackend",
+    "OAuthTokenAuth",
     "AiProfile",
     "ApiKeyAuth",
     "BackendError",

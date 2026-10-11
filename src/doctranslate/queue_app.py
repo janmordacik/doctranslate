@@ -47,6 +47,8 @@ GUI_TEXT = {
         "up": "Nahoru", "down": "Dolů", "refresh": "Obnovit",
         "order": "Pořadí", "job": "Úloha", "state": "Stav", "input": "Vstup",
         "provider": "Poskytovatel", "profile": "Profil", "configure": "Konfigurace…", "login": "Přihlásit",
+         "provider_test": "Otestovat spojení", "provider_save": "Uložit", "provider_cancel": "Zrušit", "provider_probe": "Test poskytovatele",
+         "login_completed": "Přihlášení dokončeno.",
          "output": "Výstup", "model": "Model", "phase": "Fáze",
         "input_file": "Vstupní PDF", "output_file": "Výstupní PDF",
         "html_file": "Přeložené HTML", "browse_input": "Vybrat PDF…",
@@ -97,6 +99,8 @@ GUI_TEXT = {
         "up": "Up", "down": "Down", "refresh": "Refresh",
         "order": "Order", "job": "Job", "state": "State", "input": "Input",
         "provider": "Provider", "profile": "Profile", "configure": "Configuration…", "login": "Login",
+         "login_completed": "Login completed.",
+         "provider_test": "Test connection", "provider_save": "Save", "provider_cancel": "Cancel", "provider_probe": "Provider probe",
          "output": "Output", "model": "Model", "phase": "Phase",
         "input_file": "Input PDF", "output_file": "Output PDF",
         "html_file": "Translated HTML", "browse_input": "Select PDF…",
@@ -1255,10 +1259,12 @@ class QueueGui:
         self.form_editing = editing
         entry_state = "normal" if editing else "readonly"
         combo_state = "readonly" if editing else "disabled"
+        model_state = "readonly" if not editing or self._provider_options()["model_discovery"] else "normal"
         for widget in (self.input_file_entry, self.output_file_entry, self.html_file_entry):
             widget.configure(state=entry_state)
-        for widget in (self.provider_combo, self.profile_combo, self.model_combo, self.phase_combo):
+        for widget in (self.provider_combo, self.profile_combo, self.phase_combo):
             widget.configure(state=combo_state)
+        self.model_combo.configure(state=model_state)
         for key in ("browse_input", "browse_output", "browse_html", "configure", "login"):
             self.buttons[key].configure(state="normal" if editing else "disabled")
         for key in ("copy", "pause", "prepare", "delete", "up", "down"):
@@ -1415,15 +1421,25 @@ class QueueGui:
         self.model_refreshing = True
         self.model_discovery = OllamaDiscovery("checking")
         self.labels["model_status"].configure(text=self._t("models_checking"))
+        provider = self.provider_var.get().strip() or "ollama"
 
         def discover() -> None:
-            result = discover_ollama_models()
+            try:
+                if provider == "ollama":
+                    result = discover_ollama_models()
+                else:
+                    from .ai import discover_profile_models
+                    profile, _store = self._ensure_profile(provider)
+                    models = discover_profile_models(profile)
+                    result = OllamaDiscovery("available" if models else "empty", models=models)
+            except Exception as exc:
+                result = OllamaDiscovery("offline", detail=str(exc))
             try:
                 self.root.after(0, lambda: self._apply_model_discovery(result))
             except Exception:
                 pass
 
-        threading.Thread(target=discover, name="ollama-discovery", daemon=True).start()
+        threading.Thread(target=discover, name=f"{provider}-discovery", daemon=True).start()
 
     def _apply_model_discovery(self, discovery: OllamaDiscovery) -> None:
         self.model_refreshing = False
@@ -1595,6 +1611,7 @@ class QueueGui:
             profile,
             store,
             on_saved=lambda updated: self._apply_profile_update(updated),
+            translate=self._t,
         )
 
     def _apply_profile_update(self, profile) -> None:
@@ -1612,15 +1629,22 @@ class QueueGui:
         provider = self.provider_var.get().strip()
         if not self._provider_options()["supports_login"]:
             return
-        from .ai import GeminiOAuth, KeyringCredentialStore
-        profile, _store = self._ensure_profile(provider)
+        from .ai import AiProfile, GeminiOAuth, KeyringCredentialStore
+        profile, store = self._ensure_profile(provider)
         try:
+            oauth_ref = f"oauth:{provider}:{profile.profile_id}"
             oauth = GeminiOAuth(
-                credential_ref=profile.credential_ref or f"{provider}-oauth",
+                credential_ref=oauth_ref,
                 store=KeyringCredentialStore(),
             )
             oauth.login(True)
-            self.messagebox.showinfo(self._t("login"), "Login completed.")
+            updated = AiProfile(
+                profile.profile_id, profile.revision + 1, profile.provider_id,
+                profile.model, "oauth", oauth_ref, profile.options,
+            )
+            store.save(updated)
+            self._apply_profile_update(updated)
+            self.messagebox.showinfo(self._t("login"), self._t("login_completed"))
         except Exception as exc:
             self.messagebox.showerror(self._t("login"), str(exc))
 
