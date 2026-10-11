@@ -139,6 +139,7 @@ například stránek nebo bloků.
 Seznam jobů je zpracováván shora dolů. Při výběru jobu se jeho podrobnosti
 zobrazí v dolní části skupiny **Úloha** readonly:
 
+- překladový modul (basic, výchozí; advanced se zobrazí jako nedostupný, dokud ho worker nezaregistruje),
 - vstupní soubor,
 - výstupní soubor,
 - fáze,
@@ -198,6 +199,14 @@ není nutné job ručně obnovovat.
 
 ## 7. CLI fronta
 
+Při příkazu add lze modul uložit explicitně:
+
+```powershell
+translate.cmd add book.pdf --translator basic
+```
+
+Přímý legacy běh přijímá také --translator basic; jiné moduly odmítne, dokud
+pro ně nebude zapojen workerový runner.
 Fronta se ovládá krátkými příkazy. Cestu k frontě lze nechat na konfiguraci
 pracovního adresáře; interní parametr `--queue` je určen především pro
 diagnostiku a testy.

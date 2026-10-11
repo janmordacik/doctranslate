@@ -118,6 +118,7 @@ PDF_LAYOUT_REVISION = 2 # zachování pozice inline fragmentů v překrývajíc�
 IN_LANG = "en"
 OUT_LANG = "cs"
 TARGET_VARIANT = "auto"
+TRANSLATOR_ID = "basic"
 PHASE = "both"        # html = pouze překlad; pdf = pouze sazba bez Ollamy
 HTML_FILE = OUTPUT_PDF.with_suffix(".html")
 HTML_SCHEMA = 1
@@ -3162,6 +3163,8 @@ def cli_parser():
                         help="čitelné HTML s metadaty (výchozí vedle výstupního PDF)")
     parser.add_argument("-model", "--model", default=None, metavar="MODEL",
                         help="název Ollama modelu; výchozí TRANSLATE_MODEL nebo qwen3.8:27b")
+    parser.add_argument("--translator", default="basic", metavar="ID",
+                        help="translation module ID; direct legacy runner supports basic")
     parser.add_argument("-provider", "--provider", default=None, metavar="PROVIDER",
                         help="AI provider id, například ollama/openai/gemini/claude")
     parser.add_argument("-profile", "--profile", default=None, metavar="PROFILE",
@@ -3224,9 +3227,12 @@ def entrypoint(argv=None):
         return cli_main(argv)
     parser = cli_parser()
     args = parser.parse_args(argv)
-    global TRACE, LOG_FILE, MODEL, OLLAMA_URL, PROVIDER_ID, PROFILE_ID, INPUT_FORMAT, OUTPUT_FORMAT, TARGET_VARIANT
+    global TRACE, LOG_FILE, MODEL, OLLAMA_URL, PROVIDER_ID, PROFILE_ID, INPUT_FORMAT, OUTPUT_FORMAT, TARGET_VARIANT, TRANSLATOR_ID
     global PDF_SAVE_MODE, PDF_CHECKPOINT_PAGES
     TRACE, LOG_FILE = args.trace, args.logfile
+    TRANSLATOR_ID = args.translator.strip() or "basic"
+    if TRANSLATOR_ID != "basic" and args.phase != "pdf":
+        parser.error("Only the basic translation module is wired into the direct legacy runner; use the queue worker for other modules.")
     if args.model:
         MODEL = args.model
     if args.ollama_url:

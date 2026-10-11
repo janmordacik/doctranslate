@@ -39,6 +39,26 @@ LANGUAGE_CHOICES = ("en", "cs", "de", "es", "fr", "it", "pl", "sk")
 OLLAMA_URL = os.environ.get("TRANSLATE_OLLAMA_URL", "http://localhost:11434").rstrip("/")
 DEFAULT_MODEL = os.environ.get("TRANSLATE_MODEL", "qwen3.8:27b")
 
+# The catalog is deliberately explicit: unavailable modules remain visible in
+# the status text, but the GUI cannot select them until a worker composition
+# root registers a production runner.
+TRANSLATION_MODULES = (
+    {"id": "basic", "label": "Basic", "available": True,
+     "reason": "linear translation engine"},
+    {"id": "advanced", "label": "Advanced", "available": False,
+     "reason": "worker runner is not registered yet"},
+)
+
+
+def translation_module_catalog() -> tuple[dict[str, object], ...]:
+    """Return a defensive catalog used consistently by CLI and GUI."""
+    return tuple(dict(item) for item in TRANSLATION_MODULES)
+
+
+def available_translation_module_ids() -> tuple[str, ...]:
+    """Return module IDs that the current composition root can execute."""
+    return tuple(item["id"] for item in TRANSLATION_MODULES if item["available"])
+
 GUI_TEXT = {
     "cs": {
         "title": "Translate – fronta úloh", "workdir_group": "Pracovní adresář",
@@ -48,6 +68,8 @@ GUI_TEXT = {
         "pause": "Pozastavit", "prepare": "Připravit", "delete": "Smazat",
         "up": "Nahoru", "down": "Dolů", "refresh": "Obnovit",
         "order": "Pořadí", "job": "Úloha", "state": "Stav", "input": "Vstup",
+        "translator": "Modul",
+        "translator_unavailable": "{translator} není dostupný – {reason}",
         "provider": "Poskytovatel", "profile": "Profil", "configure": "Konfigurace…", "login": "Přihlásit",
         "style": "Styl", "style_auto": "automaticky podle autora",
         "source_language": "Zdrojový jazyk", "target_language": "Cílový jazyk",
@@ -103,6 +125,8 @@ GUI_TEXT = {
         "pause": "Pause", "prepare": "Prepare", "delete": "Delete",
         "up": "Up", "down": "Down", "refresh": "Refresh",
         "order": "Order", "job": "Job", "state": "State", "input": "Input",
+        "translator": "Module",
+        "translator_unavailable": "{translator} unavailable – {reason}",
         "provider": "Provider", "profile": "Profile", "configure": "Configuration…", "login": "Login",
         "style": "Style", "style_auto": "preserve source style",
         "source_language": "Source language", "target_language": "Target language",
@@ -980,6 +1004,8 @@ def cli_main(argv: list[str]) -> int:
     add.add_argument("--inlang", default="en")
     add.add_argument("--outlang", default="cs")
     add.add_argument("--model")
+    add.add_argument("--translator", default="basic", metavar="ID",
+                     help="translation module ID; default: basic")
     add.add_argument("--provider", default="ollama")
     add.add_argument("--profile")
     add.add_argument("--input-format")
@@ -1009,10 +1035,13 @@ def cli_main(argv: list[str]) -> int:
     if args.command == "add":
         if not args.infile.is_file():
             parser.error(f"Input file does not exist: {args.infile}")
-        store.append_job(make_job(args.infile, args.outfile, inlang=args.inlang, outlang=args.outlang,
-                                  model=args.model, provider=args.provider, profile=args.profile,
-                                  input_format=args.input_format, output_format=args.output_format,
-                                   phase=args.phase, html_file=args.htmlfile))
+        store.append_job(make_job(
+            args.infile, args.outfile, inlang=args.inlang, outlang=args.outlang,
+            model=args.model, translator_id=args.translator,
+            provider=args.provider, profile=args.profile,
+            input_format=args.input_format, output_format=args.output_format,
+            phase=args.phase, html_file=args.htmlfile,
+        ))
         WorkerController(store.path).start()
         print(format_status(store))
         return 0
@@ -1086,6 +1115,8 @@ class QueueGui:
         self.language_var = tk.StringVar(value=self.language)
         self.model_var = tk.StringVar(value=DEFAULT_MODEL)
         self.provider_var = tk.StringVar(value="ollama")
+        self.translator_var = tk.StringVar(value="basic")
+        self.translation_module_choices = available_translation_module_ids()
         self.profile_var = tk.StringVar(value="")
         self.style_var = tk.StringVar(value="auto")
         self.style_display_var = tk.StringVar(value="")
@@ -1149,6 +1180,16 @@ class QueueGui:
         self.frames["job"] = job_group
         job_controls = tk.Frame(job_group)
         job_controls.pack(fill="x")
+        self.labels["translator"] = tk.Label(job_controls)
+        self.labels["translator"].pack(side="left", padx=(6, 2), pady=4)
+        self.translator_combo = ttk.Combobox(
+            job_controls, textvariable=self.translator_var,
+            values=self.translation_module_choices, state="readonly", width=11
+        )
+        self.translator_combo.pack(side="left", padx=(2, 4), pady=4)
+        self.translator_combo.bind("<<ComboboxSelected>>", self.change_translator)
+        self.labels["translator_status"] = tk.Label(job_controls, anchor="w")
+        self.labels["translator_status"].pack(side="left", padx=(0, 6), pady=4)
         self.labels["provider"] = tk.Label(job_controls)
         self.labels["provider"].pack(side="left", padx=(6, 2), pady=4)
         self.provider_combo = ttk.Combobox(
@@ -1304,6 +1345,24 @@ class QueueGui:
     def _t(self, key: str) -> str:
         return GUI_TEXT.get(self.language, GUI_TEXT["en"]).get(key, key)
 
+    def _translation_module_status_text(self) -> str:
+        unavailable = [item for item in translation_module_catalog() if not item["available"]]
+        if not unavailable:
+            return ""
+        item = unavailable[0]
+        return self._t("translator_unavailable").format(
+            translator=item["label"], reason=item["reason"]
+        )
+
+    def _refresh_translation_controls(self) -> None:
+        self.translation_module_choices = available_translation_module_ids()
+        self.translator_combo.configure(values=self.translation_module_choices)
+        if self.translator_var.get().strip() not in self.translation_module_choices:
+            # Existing advanced jobs remain inspectable, but cannot be newly
+            # selected or silently downgraded while editing.
+            self.translator_var.set(self.translator_var.get().strip() or "basic")
+        self.labels["translator_status"].configure(text=self._translation_module_status_text())
+
     def _provider_options(self) -> dict[str, object]:
         from .gui.provider_dialogs import provider_options
 
@@ -1344,7 +1403,7 @@ class QueueGui:
         model_state = "readonly" if not editing or self._provider_options()["model_discovery"] else "normal"
         for widget in (self.input_file_entry, self.output_file_entry, self.html_file_entry):
             widget.configure(state=entry_state)
-        for widget in (self.provider_combo, self.profile_combo, self.phase_combo, self.style_combo):
+        for widget in (self.translator_combo, self.provider_combo, self.profile_combo, self.phase_combo, self.style_combo):
             widget.configure(state=combo_state)
         for widget in (self.source_language_combo, self.target_language_combo):
             widget.configure(state=combo_state)
@@ -1397,6 +1456,8 @@ class QueueGui:
         self.buttons["browse"].configure(text=self._t("browse"))
         self.buttons["save_workdir"].configure(text=self._t("save"))
         self.labels["job_model"].configure(text=self._t("model"))
+        self.labels["translator"].configure(text=self._t("translator"))
+        self.labels["translator_status"].configure(text=self._translation_module_status_text())
         self.labels["model_status"].configure(text=self._model_status_text())
         for key in ("start", "send", "stop", "add", "copy", "pause", "prepare", "delete", "up", "down", "refresh", "configure", "login"):
             self.buttons[key].configure(text=self._t(key))
@@ -1424,6 +1485,7 @@ class QueueGui:
         )
         self.style_combo.configure(values=self.style_display_choices)
         self._set_style_value(self.style_var.get())
+        self._refresh_translation_controls()
         self._refresh_provider_controls()
         self._set_job_form_state(self.form_editing)
         for column, key in self.column_keys.items():
@@ -1617,6 +1679,7 @@ class QueueGui:
         if "copy" in self.buttons:
             self.buttons["copy"].configure(state="disabled")
         self.provider_var.set("ollama")
+        self.translator_var.set("basic")
         self.profile_var.set("")
         self.model_var.set(DEFAULT_MODEL)
         self.source_language_var.set("en")
@@ -1638,6 +1701,7 @@ class QueueGui:
             return
         self.buttons["copy"].configure(state="normal")
         self.provider_var.set(job.get("provider") or "ollama")
+        self.translator_var.set(job.get("translator_id") or "basic")
         self.profile_var.set(job.get("profile") or "")
         self.model_var.set(job.get("model") or DEFAULT_MODEL)
         self.source_language_var.set(job.get("inlang") or "en")
@@ -1726,6 +1790,13 @@ class QueueGui:
         self.html_file_var.set(str(Path(selected).expanduser().resolve()))
         self._set_phase_value("pdf")
         self.render()
+
+    def change_translator(self, _event: Any = None) -> None:
+        if not self.form_editing:
+            return
+        if self.translator_var.get().strip() not in available_translation_module_ids():
+            self.translator_var.set("basic")
+        self._refresh_translation_controls()
 
     def change_provider(self, _event: Any = None) -> None:
         if not self.form_editing:
@@ -2007,6 +2078,8 @@ class QueueGui:
         self.provider_var.set(source.get("provider") or "ollama")
         self.profile_var.set(source.get("profile") or "")
         self.model_var.set(source.get("model") or DEFAULT_MODEL)
+        if hasattr(self, "translator_var"):
+            self.translator_var.set(source.get("translator_id") or "basic")
         if hasattr(self, "source_language_var"):
             self.source_language_var.set(source.get("inlang") or "en")
         if hasattr(self, "target_language_var"):
@@ -2070,6 +2143,12 @@ class QueueGui:
             inlang=source_language,
             outlang=target_language,
             model=self.model_var.get().strip() or None,
+            translator_id=(
+                self.translator_var.get().strip()
+                if hasattr(self, "translator_var")
+                else template.get("translator_id", "basic")
+            ) or "basic",
+            translator_options=template.get("translator_options") or {},
             provider=self.provider_var.get().strip() or "ollama",
             profile=self.profile_var.get().strip() or None,
             input_format=template.get("input_format"),

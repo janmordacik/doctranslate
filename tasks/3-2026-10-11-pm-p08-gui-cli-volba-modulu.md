@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p06-job-volba-modulu.md, 3-2026-10-11-pm-p07-worker-engine-dispatch.md
 group: translation/engine/gui-cli
@@ -76,3 +76,10 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P08 implementován. Queue CLI add a přímý legacy CLI přijímají --translator; GUI ukládá stejný translator_id jako job selection, výchozí basic, zobrazuje dostupnost modulu a advanced explicitně označuje jako nedostupný bez worker runneru. Copy/detail/readonly a staré test doubles zůstaly kompatibilní. Aktualizován uživatelský manuál.
+
+2026-10-11: Validace: cílené testy 53 passed; celá sada 186 passed, 4 subtests passed. git diff --check bez nálezu.
+
+2026-10-11: Omezení: GUI zatím nemá skutečný přepínač na aktivní advanced engine, protože composition root ho ještě neregistruje; CLI/GUI však volbu perzistují bez tichého fallbacku. Živé GUI smoke nebylo spuštěno v rámci offline testu.
