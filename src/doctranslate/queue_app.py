@@ -64,7 +64,7 @@ GUI_TEXT = {
         "title": "Translate – fronta úloh", "workdir_group": "Pracovní adresář",
         "general_group": "Obecné", "worker_group": "Worker", "job_group": "Úloha",
         "workdir": "Adresář", "language": "Jazyk", "browse": "Procházet…", "save": "Uložit",
-         "start": "Spustit", "send": "Aktualizovat úlohy", "stop": "Zastavit worker", "add": "Přidat", "copy": "Kopírovat",
+         "start": "Spustit", "send": "Aktualizovat úlohy", "stop": "Zastavit worker", "new": "Nová", "copy": "Kopírovat",
         "pause": "Pozastavit", "prepare": "Připravit", "delete": "Smazat",
         "up": "Nahoru", "down": "Dolů", "refresh": "Obnovit",
         "order": "Pořadí", "job": "Úloha", "state": "Stav", "input": "Vstup",
@@ -121,7 +121,7 @@ GUI_TEXT = {
         "title": "Translate – job queue", "workdir_group": "Working directory",
         "general_group": "General", "worker_group": "Worker", "job_group": "Job",
         "workdir": "Directory", "language": "Language", "browse": "Browse…", "save": "Save",
-         "start": "Start", "send": "Update jobs", "stop": "Stop worker", "add": "Add", "copy": "Copy",
+         "start": "Start", "send": "Update jobs", "stop": "Stop worker", "new": "New", "copy": "Copy",
         "pause": "Pause", "prepare": "Prepare", "delete": "Delete",
         "up": "Up", "down": "Down", "refresh": "Refresh",
         "order": "Order", "job": "Job", "state": "State", "input": "Input",
@@ -1221,7 +1221,7 @@ class QueueGui:
         self.labels["model_status"] = tk.Label(job_controls, anchor="w")
         self.labels["model_status"].pack(side="left", padx=(0, 6), pady=4)
         for key, command in (
-            ("add", self.add), ("copy", self.copy_selected_job), ("pause", self.pause), ("prepare", self.prepare),
+            ("new", self.add), ("copy", self.copy_selected_job), ("pause", self.pause), ("prepare", self.prepare),
             ("delete", self.delete), ("up", lambda: self.move(-1)),
             ("down", lambda: self.move(1)),
         ):
@@ -1312,6 +1312,7 @@ class QueueGui:
             self.tree.column(column, width=widths[column], anchor="w")
         self.tree.pack(fill="both", expand=True, padx=8, pady=(8, 4))
         self.tree.bind("<<TreeviewSelect>>", self.select_job)
+        self.tree.bind("<Double-1>", self.copy_job_on_double_click)
         preview_frame = tk.LabelFrame(self.root, text=self._t("preview_title"))
         preview_frame.pack(fill="x", padx=8, pady=(0, 4))
         preview_body = tk.Frame(preview_frame)
@@ -1414,7 +1415,7 @@ class QueueGui:
             self.buttons[key].configure(state="disabled" if editing else "normal")
         for key in ("start", "send"):
             self.buttons[key].configure(state="disabled" if editing else "normal")
-        self.buttons["add"].configure(state="disabled" if editing else "normal")
+        self.buttons["new"].configure(state="disabled" if editing else "normal")
         if editing:
             self.buttons["ok"].pack(side="left", padx=(6, 2), pady=3)
             self.buttons["cancel"].pack(side="left", padx=2, pady=3)
@@ -1459,7 +1460,7 @@ class QueueGui:
         self.labels["translator"].configure(text=self._t("translator"))
         self.labels["translator_status"].configure(text=self._translation_module_status_text())
         self.labels["model_status"].configure(text=self._model_status_text())
-        for key in ("start", "send", "stop", "add", "copy", "pause", "prepare", "delete", "up", "down", "refresh", "configure", "login"):
+        for key in ("start", "send", "stop", "new", "copy", "pause", "prepare", "delete", "up", "down", "refresh", "configure", "login"):
             self.buttons[key].configure(text=self._t(key))
         self.labels["provider"].configure(text=self._t("provider"))
         self.labels["profile"].configure(text=self._t("profile"))
@@ -2092,6 +2093,19 @@ class QueueGui:
         self._refresh_provider_controls()
         self._log_action("job.copy.started", source_job_id=source["id"])
         self.render()
+
+    def copy_job_on_double_click(self, event: Any = None) -> str:
+        """Copy the row under the pointer, matching the Copy button action."""
+        if self.form_editing:
+            return "break"
+        item = self.tree.identify_row(event.y) if event is not None else ""
+        if not item:
+            return "break"
+        self.tree.selection_set(item)
+        self.tree.focus(item)
+        self.select_job()
+        self.copy_selected_job()
+        return "break"
 
     def commit_job_form(self) -> None:
         """Validate and append the form to the local queue draft."""

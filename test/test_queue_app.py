@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -204,7 +204,7 @@ class QueueStoreTests(unittest.TestCase):
         self.assertEqual(seen, [("model-a", 2, 4), (translate.DEFAULT_MODEL, 1, None)])
 
     def test_gui_localization_contains_core_controls(self):
-        required = {"start", "send", "stop", "add", "copy", "pause", "prepare", "delete", "refresh"}
+        required = {"start", "send", "stop", "new", "copy", "pause", "prepare", "delete", "refresh"}
         for language in ("cs", "en"):
             self.assertTrue(required.issubset(GUI_TEXT[language]))
             self.assertNotEqual(GUI_TEXT[language]["start"], GUI_TEXT[language]["send"])
@@ -257,6 +257,32 @@ class QueueStoreTests(unittest.TestCase):
         self.assertEqual(fake.html_file_var.get(), source["html_file"])
         self.assertEqual(fake.phase_value, "pdf")
         self.assertEqual(fake.form_editing, True)
+
+    def test_gui_double_click_on_row_uses_copy_action(self):
+        class Tree:
+            def __init__(self):
+                self.current = "job-1"
+
+            def identify_row(self, _y):
+                return self.current
+
+            def selection_set(self, item):
+                self.current = item
+
+            def focus(self, _item):
+                pass
+
+        fake = QueueGui.__new__(QueueGui)
+        fake.form_editing = False
+        fake.tree = Tree()
+        fake.select_job = Mock()
+        fake.copy_selected_job = Mock()
+
+        result = QueueGui.copy_job_on_double_click(fake, type("Event", (), {"y": 10})())
+
+        self.assertEqual(result, "break")
+        fake.select_job.assert_called_once_with()
+        fake.copy_selected_job.assert_called_once_with()
 
     def test_gui_copy_commit_creates_new_prepared_job_with_metadata(self):
         with tempfile.TemporaryDirectory() as folder:
