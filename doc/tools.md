@@ -193,6 +193,8 @@ ollama list. Wheel check je samostatná kontrola instalovatelnosti.
 
 ## Poslední aktualizace
 
+- 2026-10-11: Při mapování překladového toku selhal rg/read na odhadnutých cestách queue_cli.py, queue_gui.py a queue_store.py (ENOENT). Recovery: nejprve rg --files src/doctranslate test tasks; skutečný store/CLI/GUI je v queue_app.py a Worker v queue_worker.py. Budoucí cestu ze zamýšleného refaktoringu neprezentovat jako existující soubor; taskové nové cesty výslovně označit.
+
 - 2026-10-11: Při zpřesnění plánu pro Lunu znovu ověřen recept pro neplatný kontext patchů: část hledané věty byla uprostřed řádku. Celé skutečné řádky načtené ze souboru použity jako kontext cílených patchů; podřetězec nepovažovat za samostatný řádek.
 
 - 2026-10-11: Recept 1 znovu použit po helper_unknown_error; execFile přes Node fungoval. Recept 5 použit po redeklaraci rows; blokové let se samostatným scope fungovalo. Celorepozitářový rg překročil 30s timeout a resetoval REPL; obnovení importů a hledání jen v doc/tasks/AGENTS.md/tasks-local-ai proběhlo za 2 s. Pro malý dotaz zadávat konkrétní kořeny, aby se neprocházely tmp a vnořený checkout. Po timeoutu ověřit dokončené patche čtením.

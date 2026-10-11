@@ -33,6 +33,7 @@ Aktuální produkční cesta je stále PDF → XHTML/HTML → PDF. Nový kontrak
 | PDF input/output adapter | rozhraní a první implementace existují; produkční tok dosud legacy, output vyžaduje renderer |
 | Registr adapterů | implementován |
 | Formátově nezávislá pipeline | kontrakt implementován; úplné převedení legacy sazby je další krok |
+| Pokročilý překlad dlouhých textů a volba modulu | [zadání A18](modularization-analysis.md#a18-pokročilý-překlad-dlouhých-textů--zadání-a-cílový-návrh), [první návrh v0.1 A19](modularization-analysis.md#a19-první-architektonický-návrh-v01-a-implementace-pro-lunu) a [plán P01–P18](../tasks/3-2026-10-11-prekladove-moduly-implementace.md); návrh v review, registry/basic facade/advanced a GUI volba zatím nejsou implementovány |
 | Konfigurovatelný model a Ollama endpoint | implementováno přes -model, -ollama-url a prostředí |
 | AI provider moduly, profily a cloud autentizace | implementováno pro konfiguraci, keyring/env credentials a provider smoke kontrakt; live cloud smoke neověřen |
 | translate.cmd runner | implementováno |

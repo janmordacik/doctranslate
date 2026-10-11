@@ -862,3 +862,722 @@ sequenceDiagram
 ~~~
 
 Implementation is offline tested. The GUI target-language selector is implemented; manual GUI smoke, live Ollama benchmark and visual PDF verification are deliberately user-run operations.
+
+## A18 Pokročilý překlad dlouhých textů — zadání a cílový návrh
+
+Stav: návrh podle zadání 2026-10-11, není implementováno.
+Issue: [návrh překladového modulu](../tasks/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md).
+Tato sekce je autoritativní pro nový engine; stávající procesy P00–P07
+a implementované kontrakty zůstávají výchozím stavem pro migrační analýzu.
+
+### Účel, prostředí a rozsah
+
+- Knihy a odborné texty v rozsahu řádově 1000 stran; převážně unikátní obsah.
+- Prioritní jazykový pár EN→CS, ale veřejné kontrakty zůstávají jazykově obecné.
+- Lokální model přibližně 27B, jedna GPU s 6–32 GB VRAM a modelový limit
+  kontextu nejvýše 128k. Tyto údaje nejsou zárukou současného využití:
+  efektivní kontext se určí podle konkrétního modelu, kvantizace a paměti.
+- Zachovat jednoduché napojení: input.read(path) → engine.translate(document,
+  options, context) → output.write(result.document, target).
+- Překlad se provádí nad XHTML bloky a metadaty. PDF extrakce a sazba patří
+  adaptérům; výstup z hotového XHTML nepotřebuje AI.
+- Jde o zadání návrhu. Implementaci, instalaci ani dlouhé běhy tento zápis
+  neautorizuje; navazující implementační tasky vzniknou po návrhu.
+
+### Volba překladového modulu pro job
+
+Povinná vlastnost cílové architektury: uživatel jednoduše zvolí překladový
+modul při vytvoření/editaci jobu. Volba je nezávislá na AI provideru a modelu.
+
+| Stabilní ID | Název v GUI | Význam |
+|---|---|---|
+| basic | Základní překlad / Basic translation | současný lineární překlad, napojený přes společný kontrakt |
+| advanced | Pokročilý překlad / Advanced translation | navrhovaný engine s kontextem, glosářem a volitelnou agentní relací |
+
+Obě implementace poskytují stejné TranslationEngine rozhraní. Stávající
+překlad se obalí adaptérem/fasádou bez nutnosti přepisovat algoritmus.
+Standardní a rozšířený režim popsané dále jsou volby uvnitř advanced;
+nejde o další označení modulu basic.
+
+- JSON job obsahuje translator_id a translator_options. Při potvrzení jobu
+  uložit konkrétní ID; worker neodvozuje modul z modelu ani z provideru.
+- GUI v editaci jobu nabízí samostatné kombo Překladový modul; detail ukazuje
+  uloženou volbu. CLI nabídne stejnou volbu, návrh parametru --translator.
+  Příklad budoucího použití: translate.cmd add ... --translator advanced.
+- Výchozí volba je basic. Starší joby bez ID se jednoznačně mapují na basic.
+  Kopie jobu zachová modul i jeho options. Změna konfigurace výchozího modulu
+  nesmí změnit již uložené joby.
+- Hlavní způsob výběru je per-job, nikoli globální přepnutí běžícího workeru.
+  Jeden worker může postupně zpracovat frontu obsahující oba moduly.
+- TranslationEngineRegistry.list() vrací ID, název, dostupnost s důvodem,
+  podporované options/capabilities a implementační revizi;
+  create(id, dependencies, options) vytvoří implementaci společného kontraktu.
+  První registr je explicitní, bez potřeby dynamického plugin frameworku.
+- Advanced je zatím návrh, nikoli dostupný modul. GUI nesmí nabízet návrh jako
+  funkční volbu. Není-li explicitně zvolený modul dostupný či kompatibilní,
+  zobrazit důvod a nepřepnout tiše na basic.
+- Před každým překladem worker znovu ověří ID, options a potřebné schopnosti
+  provideru. Nedostupnost jednoho modulu nesmí bránit spuštění basic jobů.
+  Render-only nevyžaduje registraci/sestavení překladového modulu ani AI.
+- Logy a metriky uvádějí modul a revizi; cache/checkpoint identity obsahuje
+  ID, revizi a účinné options. Resume nesmí použít nekompatibilní stav.
+  Změna modulu během aktivního běhu není hot-swap; musí se uplatnit stávající
+  řízená invalidace/přerušení jobu, bez míchání výsledků různých modulů.
+
+Výběr modulu a registr jsou nové požadavky, ne popis současného GUI/CLI.
+Konkrétní JSON schéma, validace a migrační kroky jsou výsledkem A02b.
+
+### Zvolená architektura a režimy
+
+Řízený TranslationEngine s externí terminologickou pamětí a volitelnou
+agentní smyčkou. Program vlastní plánování, nástroje, limity a ukládání;
+model rozhoduje o překladu, může vyžádat kontext, doplnění paměti nebo revizi.
+
+Standardní režim: sémantické dávky, automatické předání relevantního okolí,
+stylu a glosáře, překlad, deterministická validace a omezená oprava chyb.
+
+Rozšířený režim: stejný tok doplněný aktivními nástrojovými dotazy a cílenou
+AI revizí. Jednotlivé role se volají sekvenčně nad jednou načtenou instancí.
+Kvalitativní revize je volitelná; není povinný druhý překlad celé knihy.
+
+Provider musí mít ověřené schopnosti potřebné pro konkrétní režim.
+Neschopnost spolehlivého tool calling nesmí zablokovat standardní překlad.
+Převod JSON požadavků na nástroje není sám důkazem jazykové kvality.
+Předávání kontextu musí respektovat podporovaný prompt konkrétního modelu.
+
+### Segmentace a sestavení kontextu
+
+- Dělit podle oddílů, odstavců, vět a dalších významových hranic; stránka není
+  automaticky významová jednotka. Zachovat mapování segmentů na XHTML a markup.
+- Kontextový rozpočet zahrnuje instrukce, nástrojová schémata a odpovědi,
+  překládaný text, okolí, terminologii i rezervu pro výstup.
+- Okolní zdrojový text slouží pouze pro pochopení. Překládat jen explicitně
+  označené segmenty se stabilními IDs; nevytvářet překlady překryvu k deduplikaci.
+- Do každé dávky předat jen relevantní glosář, nadpisovou cestu a omezené
+  okolí; nezvětšovat historii o všechny dosavadní AI zprávy.
+- Kontext kapitoly nebo profil dokumentu je volitelné rozšíření. Shrnutí
+  nesmí nahrazovat originál ani se považovat za bezchybný zdroj faktů.
+- Dávky přizpůsobovat limitům, chybám a výsledkům měření. Při vadném výstupu
+  opravovat pouze dotčené segmenty; nesnižovat kvalitu mechanickým krácením.
+
+### Paměť větší než kontext a nástroje
+
+Glosář je paměť pojmů, významů, aliasů, postav a překladových rozhodnutí.
+Checkpoint/cache je samostatná paměť hotových segmentů pro obnovu práce.
+Velikost paměti na disku není limitovaná kontextem; limitovaná je každá
+odpověď nástroje. Výběr má mít limit výsledků i tokenů a možnost dalšího dotazu.
+
+První úložiště: strukturované JSON záznamy a odvozený index v RAM. Vyhledávání
+začíná přesnou shodou a aliasy, pokračuje normalizací a slovním hledáním.
+Filtry zahrnují dokument, jazyky, oblast a význam. Sémantický index je
+pozdější vyměnitelná strategie, nikoli podmínka první verze.
+
+| Nástroj návrhu | Výsledek a pravidlo |
+|---|---|
+| lookup_terms(terms, context) | relevantní překlady, významy a evidence; více významů nezaměňovat |
+| search_memory(query, scope) | omezený výběr rozhodnutí a dalších paměťových záznamů |
+| get_occurrences(term) | zdrojové výskyty a dosavadní překlady, tedy konkordance |
+| get_source(segment_ids) | dohledatelné okolí originálu v rámci dokumentu |
+| propose_term(entry) | validovaný návrh doplnění/změny; výsledek accepted, proposed nebo conflict |
+| request_revision(segment_ids, reason) | požadavek na opravu konkrétních segmentů |
+
+Záznam termínu má stabilní ID, zdrojový a cílový jazyk/výraz, význam či oblast,
+aliasy, původ v segmentech a revizi. Odborná extrakce je širší než samotné NER.
+Program deduplikuje podle významu a scope, nikoli jen podle řetězce výrazu.
+
+Nekonfliktní návrhy lze přijímat automaticky podle explicitní politiky;
+konfliktní návrh nesmí tiše přepsat existující rozhodnutí. Vést historii změn,
+odlišit modelový návrh od potvrzeného rozhodnutí a vracet konflikty k řešení.
+Každé rozhodnutí i přijetí musí být dohledatelné; uložená chyba se nesmí
+nekontrolovaně šířit do dalších segmentů.
+
+Pro dávku použít známou revizi pravidel a evidovat použité termíny.
+Změna rozhodnutí musí umožnit dohledat dotčené segmenty a jejich revizi;
+přesná politika cache identity a invalidace je výstup navazující analýzy.
+Zápisy jsou idempotentní, atomické a obnovitelné po přerušení. Model nedostává
+obecný souborový nástroj; do úložiště zapisuje jeho spravovaná služba.
+
+### Kontrola, rušení a konec smyčky
+
+Deterministicky kontrolovat úplnost/IDs, markup, čísla a reference, nežádoucí
+opakování a terminologické signály s ohledem na skloňování. Tyto kontroly
+neprokazují významovou správnost ani úplnou stylistickou kvalitu.
+
+AI revize dostává originál, překlad a relevantní pravidla. Výstupem jsou
+konkrétní problémy a segmenty. Stejný model v roli korektora není nezávislý
+důkaz správnosti. Po opravě znovu validovat a zachovat poslední platný výsledek.
+
+Engine hlídá maximální počty tool calls, oprav i časový/tokenový rozpočet.
+Model může skončit dříve; opakovaný stejný dotaz či oprava bez pokroku
+nesmí vytvořit nekonečnou smyčku. Po vyčerpání limitu zaznamenat nevyřešený
+problém a checkpoint; nesignalizovat bezpodmínečně úspěšný překlad.
+
+Rušení se kontroluje mezi kroky a během AI požadavku podle schopností
+backendu. Obnova musí zachovat validované segmenty i paměťová rozhodnutí.
+Zpracování celého dokumentu do paměti modelu ani jeden trvale rostoucí chat
+se nepoužívá.
+
+### Výkonové rozhodnutí a ověření přínosu
+
+Glosář slouží především konzistenci a snížení oprav. Jeho termíny neumožňují
+přeskočit generování celé věty. U cílových textů nepředpokládat významnou
+redundanci celých odstavců a nezakládat očekávané zrychlení na deduplikaci.
+
+Pokročilé fuzzy reuse, šablonové nahrazování, překladová paměť napříč knihami,
+vektorová databáze, GraphRAG a autonomní LangGraph/ReAct nejsou rozsah první
+verze. Obnovovací cache zůstává; levné opakování již známého segmentu je možné
+jako detail, nikoli samostatný výkonový projekt.
+
+Priorita výkonu: model s přijatelnou EN→CS kvalitou, vhodná velikost dávek,
+omezený relevantní kontext, automatický sub-glosář, minimum nástrojových
+mezivolání, cílené opravy, setrvání modelu na GPU. CPU může připravovat
+následující dávku; paralelní AI požadavky až po měření paměti a throughputu.
+
+Hypotézy z diskuse: krátký kontext může přidat přibližně 10–40 % času,
+výběrová AI revize 30–100 % a plošná revize může násobit cenu 2–4×.
+Nejde o naměřené výsledky ani garanci. Předběžné cíle k ověření jsou režie
+standardního režimu do 25 % a rozšířeného do 50 % vůči srovnatelnému baseline;
+překročení zdokumentovat a posoudit podle prokazatelného přínosu kvality.
+
+Porovnat baseline, context+glossary a rozšířený režim na stejných unikátních
+vzorcích, modelu/kvantizaci, stylu a skutečně přiděleném kontextu. Zvlášť
+odborný text, literární text a obtížné návaznosti; lidská kontrola vzorků EN→CS.
+Zaznamenat cold/warm, přípravu a vyhledávání, prompt/output tokeny a časy,
+počet AI/tool volání, validace, opravy, nevyřešené bloky, checkpoint I/O,
+celkový čas a GPU/CPU offload. Měřit čas na přijatelný překlad včetně oprav.
+Nevydávat offline mock test za důkaz živého výkonu nebo jazykové kvality.
+
+### Odpovědnosti komponent
+
+| Komponenta | Odpovědnost |
+|---|---|
+| TranslationEngine | jednotný kontrakt, řízení režimu, rozpočtů a výsledku |
+| TranslationEngineRegistry | dostupnost, validace options a sestavení basic/advanced podle jobu |
+| BlockPlanner | významové segmenty a dávky s vazbou na XHTML |
+| ContextBuilder | omezený okolní kontext, nadpisy a relevantní terminologie |
+| TranslationSession | AI požadavky, volitelné nástroje a cílené opravy |
+| MemoryTools / GlossaryStore | spravované dotazy, návrhy, konflikty a trvalá historie |
+| Validator | kontrola struktury a definovaných kvalitativních signálů |
+| CheckpointStore | atomické ukládání validovaných segmentů a vazeb na rozhodnutí |
+| AiBackend | providerový kontrakt a deklarované schopnosti modelu |
+| DocumentOrchestrator / adaptéry | job, formáty, vstup a výstup mimo engine |
+
+### Cílová struktura enginu
+
+~~~mermaid
+classDiagram
+    class DocumentOrchestrator
+    class TranslationEngineRegistry {
+        +list() descriptors
+        +create(id, dependencies, options) TranslationEngine
+    }
+    class BasicTranslationEngine
+    class AdvancedTranslationEngine
+    class InputAdapter {
+        +read(source) XhtmlDocument
+    }
+    class OutputAdapter {
+        +write(document, target) Path
+    }
+    class TranslationEngine {
+        +translate(document, options, context) TranslationResult
+    }
+    class BlockPlanner
+    class ContextBuilder
+    class TranslationSession
+    class MemoryTools
+    class GlossaryStore
+    class Validator
+    class CheckpointStore
+    class AiBackend
+    DocumentOrchestrator --> InputAdapter
+    DocumentOrchestrator --> TranslationEngine
+    DocumentOrchestrator --> TranslationEngineRegistry : job translator_id
+    TranslationEngineRegistry --> TranslationEngine : creates
+    TranslationEngine <|.. BasicTranslationEngine
+    TranslationEngine <|.. AdvancedTranslationEngine
+    BasicTranslationEngine --> AiBackend
+    BasicTranslationEngine --> Validator
+    BasicTranslationEngine --> CheckpointStore
+    DocumentOrchestrator --> OutputAdapter
+    AdvancedTranslationEngine --> BlockPlanner
+    AdvancedTranslationEngine --> ContextBuilder
+    AdvancedTranslationEngine --> TranslationSession
+    AdvancedTranslationEngine --> Validator
+    AdvancedTranslationEngine --> CheckpointStore
+    ContextBuilder --> GlossaryStore : automatic selection
+    TranslationSession --> AiBackend
+    TranslationSession --> MemoryTools : optional tool requests
+    MemoryTools --> GlossaryStore : managed reads and proposals
+~~~
+
+### Procesní index cílového návrhu
+
+| Proces | Autoritativní diagram |
+|---|---|
+| T01 Překlad, render-only, chyba, zrušení a obnova | [T01](#t01-preklad-a-obnova) |
+| T02 Hledání a změna glosáře | [T02](#t02-prace-s-pameti) |
+| T03 Omezená agentní relace a cílená revize | [T03](#t03-agentni-relace) |
+| T04 Volba modulu v jobu a ověření dostupnosti workerem | [T04](#t04-volba-prekladoveho-modulu) |
+
+### T01 Preklad a obnova
+
+~~~mermaid
+sequenceDiagram
+    participant Caller
+    participant Runner as DocumentOrchestrator
+    participant Input as InputAdapter or XhtmlCodec
+    participant Engine as TranslationEngine
+    participant State as CheckpointStore
+    participant Session as TranslationSession
+    participant Output as OutputAdapter
+    Caller->>Runner: run(job, controls)
+    Runner->>Input: read(source)
+    Input-->>Runner: XHTML and metadata
+    alt render-only
+        Runner->>Output: write(translatedXhtml, target)
+        Output-->>Runner: path or output error
+    else translation
+        Runner->>Engine: translate(document, options, context)
+        Note over Runner,Engine: Engine chosen from job by T04; context and memory steps apply to advanced
+        Engine->>State: load compatible checkpoint and memory revisions
+        State-->>Engine: validated segments and decisions
+        loop missing batches while budget remains and not cancelled
+            Engine->>Engine: plan batch and select bounded context
+            Engine->>Session: translate or revise selected segments
+            opt caller requests cancellation
+                Caller->>Engine: cancellation signal
+                Engine->>Session: cancel active request if supported
+            end
+            Session-->>Engine: candidates or typed failure
+            alt validated result
+                Engine->>Engine: apply text and markup preserving metadata
+                Engine->>State: save accepted checkpoint
+                Engine-->>Caller: progress and throttled preview
+            else error or cancellation
+                Engine->>Engine: retain last valid checkpoint and record outcome
+                Note over Engine,Session: No further batches after terminal failure or cancellation
+            end
+        end
+        alt complete and valid
+            Engine-->>Runner: translated XHTML and metrics
+            Runner->>Output: write(result.document, target)
+            Output-->>Runner: path or output error
+        else cancelled, failed or unresolved
+            Engine-->>Runner: outcome and recoverable checkpoint
+        end
+    end
+    Runner-->>Caller: outcome
+~~~
+
+### T02 Prace s pameti
+
+~~~mermaid
+sequenceDiagram
+    participant Requester as ContextBuilder or TranslationSession
+    participant Tools as MemoryTools
+    participant Store as GlossaryStore
+    Requester->>Tools: lookup, search or occurrences with scope and limit
+    Tools->>Store: query indexes and source evidence
+    Store-->>Tools: candidates with IDs and revisions
+    Tools-->>Requester: bounded results and more-results indication
+    opt model proposes a term or decision
+        Requester->>Tools: propose_term(entry, evidence)
+        Tools->>Tools: validate schema, meaning, scope and idempotency
+        Tools->>Store: compare with existing revision
+        alt valid nonconflicting proposal accepted by policy
+            Store->>Store: atomic save and affected-segment tracking
+            Store-->>Tools: accepted revision
+        else conflicting, invalid or requires review
+            Store-->>Tools: conflict or proposal state
+        end
+        Tools-->>Requester: structured result
+    end
+~~~
+
+### T03 Agentni relace
+
+~~~mermaid
+sequenceDiagram
+    participant Engine
+    participant Session as TranslationSession
+    participant AI as AiBackend
+    participant Tools as MemoryTools
+    participant Check as Validator
+    Engine->>Session: batch, selected context and budgets
+    loop bounded calls while not cancelled and not complete
+        Session->>AI: translation or targeted review request
+        AI-->>Session: candidates, tool request or error
+        alt permitted tool request in extended mode
+            Session->>Tools: execute validated request
+            Tools-->>Session: bounded result
+        else candidate translation
+            Session->>Check: validate IDs, text, markup and signals
+            Check-->>Session: accepted or specific issues
+            opt repair warranted and budget available
+                Session->>AI: repair affected segments only
+                AI-->>Session: repaired candidates
+                Session->>Check: revalidate
+                Check-->>Session: result
+            end
+        else invalid request, error, no progress or cancellation
+            Session->>Session: bounded retry or terminal outcome
+        end
+    end
+    Session-->>Engine: accepted segments, unresolved issues and metrics
+~~~
+
+### T04 Volba prekladoveho modulu
+
+~~~mermaid
+sequenceDiagram
+    participant UI as GUI or CLI
+    participant Registry as TranslationEngineRegistry
+    participant Queue as Job queue
+    participant Worker
+    participant Engine as Selected TranslationEngine
+    UI->>Registry: list descriptors and availability
+    Registry-->>UI: basic, advanced if available, options and reasons
+    UI->>UI: choose translator separately from provider and model
+    UI->>Queue: persist translator_id and translator_options on confirmation
+    Worker->>Queue: read next job
+    Queue-->>Worker: job with persisted choice
+    alt render-only
+        Worker->>Worker: use output adapter without translator or AI
+    else translation
+        opt legacy job without translator_id
+            Worker->>Worker: resolve basic deterministically
+        end
+        Worker->>Registry: validate and create chosen implementation
+        alt available and compatible
+            Registry-->>Worker: TranslationEngine
+            Worker->>Engine: translate(XHTML, options, context)
+            Engine-->>Worker: result or recoverable outcome
+        else unavailable, invalid or incompatible
+            Registry-->>Worker: typed error with reason
+            Worker->>Queue: record job failure without silent fallback
+        end
+    end
+~~~
+
+### Podklady a hranice závěrů
+
+- [Translation Agent](https://github.com/andrewyng/translation-agent): inspirace
+  reflexe a opravy; experimentální projekt, ne záruka převahy pro EN→CS.
+- [Terminology Integration](https://arxiv.org/abs/2310.14451): podporuje význam
+  schválené terminologie a cílených oprav, ne nutnost vektorové DB.
+- [Lost in the Middle](https://arxiv.org/abs/2307.03172): využití dlouhého
+  kontextu může být nerovnoměrné; nestanovuje optimální překladovou dávku.
+- [Ollama FAQ](https://docs.ollama.com/faq): paměť, paralelismus a KV kvantizace;
+  velikost 128k se musí ověřit pro konkrétní model/backend/GPU.
+- [Memory tools](https://langchain-ai.github.io/langmem/guides/memory_tools/):
+  příklad spravovaného vyhledávání a zápisu; závislost na LangMem se nenavrhuje.
+
+Rešerši neinterpretovat jako tři závazně standardizované architektury.
+Shrnutí neeliminuje chyby referencí; stejný model v různých rolích nemá
+nezávislý konsenzus a function calling není podmínkou standardního překladu.
+
+## A19 První architektonický návrh v0.1 a implementace pro Lunu
+
+Stav k 2026-10-11: první návrh k review, nikoli implementovaný engine.
+A18 je zadání; A19 zpřesňuje kontrakty, vnitřní hranice a migraci.
+[Implementační strom P01–P17](../tasks/3-2026-10-11-prekladove-moduly-implementace.md)
+vede samostatné issues a jejich závislosti. Návrhový task zůstává otevřený
+do review; implementační issues jsou created a nesmějí se automaticky spustit.
+
+### A01 Ověřená mapa dnešního běhu
+
+| Vrstva | Skutečný symbol / chování | Důsledek |
+|---|---|---|
+| Produkční worker | queue_worker.Worker.run_job → translate.configure/configure_phases → translate.main | JobRunner není produkční vstup tohoto workeru |
+| Překlad v legacy | translate.run_translation → fill_translation_cache → translate_batch | zachovat JSON dávky, fragment IDs, obnovu a ruční HTML úpravy |
+| Výstup v legacy | translate.run_html_typesetting | samostatná fáze bez AI, nepřepisovat sazbu v této změně |
+| XHTML bridge | translate.xhtml_document_from_page_groups | vhodný integrační šev, nikoli hotová bezztrátová výměna dokumentů |
+| Novější orchestrace | job_runner.JobRunner → SegmentTranslationPipeline | existující menší obecná cesta a fake-adapter testy |
+| Provider | HttpAiBackend.translate_segments | dnes volá translate jednotlivě; context a markup z requestu dál nepředává |
+| Core | TranslationPipeline, translated_markup, XhtmlDocument.with_blocks | existuje ochrana více textových uzlů; nesmí se nahradit naivním replace |
+
+Staticky potvrzený problém JobRunner: nové výsledky jsou uloženy až po
+aplikaci obnovených hodnot do dokumentu, takže první výstup může zůstat zdrojový.
+Test kontroluje až druhý běh. P01 musí nejprve přidat selhávající test prvního
+běhu, potom opravit text i markup. Toto není důkaz chyby dnešního legacy PDF toku.
+
+Další migrační rizika: bridge zatím nepřenáší všechny resources/fragment metadata
+a bere bbox z jiné položky než block_metadata. Produkční bridge proto nejprve
+ověřit round-trip testy P05. Žádný z těchto nálezů se tímto zápisem neopravuje.
+
+### A02 Veřejný kontrakt a datové hranice
+
+~~~python
+class TranslationEngine(Protocol):
+    def translate(self, document: XhtmlDocument,
+                  options: TranslationOptions, *,
+                  context: TranslationContext | None = None) -> TranslationResult: ...
+~~~
+
+Engine dostává objekty, ne cesty vstupního/výstupního formátu. Registry jej
+sestaví s backendem a interními službami. Vnější runner zajistí I/O a metadata.
+Bez context se vytvoří pouze in-memory runtime bez persistence/callbacků;
+worker vždy injektuje svůj explicitní context.
+Autoritativní obsah tvoří blocks a jejich markup, ne případný starý document.html;
+serializer musí generovat HTML z výsledných bloků.
+
+| Typ | Minimální návrh polí / pravidel |
+|---|---|
+| TranslationOptions | source_language, target_language, target_variant; explicitní jazyky mají přednost před vstupními metadaty |
+| TranslatorSelection | translator_id: basic/advanced, translator_options: validovaná JSON mapa; odděleně provider/profile/model |
+| TranslationContext | cancel_event, on_progress, on_preview, on_batch_committed, checkpoint, logger, clock; žádné závislosti na Tk nebo queue |
+| TranslationResult | document, metrics, warnings; vrací se jen strukturálně kompletní validní dokument |
+| TranslationMetrics | translator_id/revision, batches/segments, resumed, AI/tool calls, tokens s původem measured/estimated, timings |
+| TranslationError | code, message, retryable, checkpoint reference; terminální chyba nevrací úspěšný výsledek |
+| TranslationCancelled | samostatná výjimka; worker ji mapuje na stávající stop/pause pravidla, ne failed |
+| EngineDescriptor | id, label, revision, options_schema, availability/reason, capability requirements a factory |
+
+Options se normalizují jednou do účinné konfigurace před identity hash.
+Neznámá ID/options a záporné/nekonečné rozpočty odmítnout, ne tiše ignorovat.
+Konstrukce descriptorů nespouští AI a dostupnost neznamená ověřenou kvalitu.
+Render-only obejde registry, backend i kontrolu překladových schopností.
+
+Návrh advanced options v0.1: mode=standard, max_batch_input_tokens,
+max_context_tokens, reserved_output_tokens, max_attempts=2,
+glossary_path a quality_policy=warn|strict. Rozpočet musí být kladný a vejít se
+do zjištěného efektivního limitu modelu. Univerzální velikost dávky se neurčuje.
+Režim extended navíc max_tool_calls=4, max_revisions=1, max_session_calls=8
+a max_session_seconds=120. Jde o výchozí ochranné hodnoty pro první testy,
+konfigurovatelné a započítávající i chyby/opravné kroky, nikoli výkonové sliby.
+
+Quality policy: strukturální chyba vždy fail; terminologické/obsahové podezření
+je explicitní warning nebo fail podle politiky. Vyčerpání budgetu při chybějícím
+překladu je fail, nikoli tiché označení kompletního jobu done.
+
+### A03 Hranice balíčků a reuse
+
+~~~text
+src/doctranslate/
+  translation/                       NOVÉ, pouze formátově nezávislé jádro
+    contracts.py, registry.py          engine, selection, descriptor, výsledky
+    basic.py                          současná lineární strategie za společným API
+    advanced.py, planning.py           standardní kontextový engine a mapování
+    context.py, checkpoint.py          rozpočty, účinná identita, per-batch stav
+    memory.py, retrieval.py            JSON paměť a odvozený RAM index
+    tools.py, session.py               volitelné řízené agentní rozšíření
+  integration/translation_bridge.py    NOVÉ, legacy XHTML/cache/fragment bridge
+  ai/                                 EXISTUJE, provider a transport
+    context_backend.py                NOVÉ volitelné contextual/agent porty
+  translate_core/, formats/            EXISTUJE, dokument a formátové adaptéry
+  queue_app.py, queue_worker.py        EXISTUJE, job/GUI/CLI a composition root
+~~~
+
+Neprovádět současně plošné přesuny do queue/documents. Související layout task
+musí respektovat tyto hranice. PDF sazba nesmí vzniknout v translation/.
+
+BasicTranslationEngine řídí stávající lineární dávky. Zachová fragment IDs,
+literal placeholders, validaci a již existující retry/obnovu, nikoli nový algoritmus.
+Legacy batch executor se injektuje přes malé BatchExecutor rozhraní; implementace
+v integration zpočátku volá ověřené helpers. Core nesmí importovat translate.py.
+Závislost na legacy globalech je přechodný dluh výhradně integračního adaptéru.
+
+AdvancedTranslationEngine používá tentýž bezpečný fragment mapping a zápis,
+přidává BlockPlanner a ContextBuilder. Nesmí překládat pouze plain text a zahodit
+span/br/math strukturu. Segment může sdružit více zdrojových bloků pro kontext,
+ale jeho výsledky musí mít jednoznačné původní block/fragment IDs.
+
+### Plánování, paměť a provider porty
+
+- BlockPlanner vytvoří stabilní segment IDs z block/fragment ID a lokálního indexu.
+  Dlouhý blok dělit na větných hranicích se zachováním mapy; oversized nedělit
+  přes chráněný fragment. Nelze-li jej bezpečně rozdělit, vrátit segment_too_large.
+- TokenCounter je injektovaná strategie. Bez dostupného tokenizeru použít
+  konzervativní odhad s rezervou a zaznamenat estimated; po context-limit chybě
+  dávku zmenšit s konečným limitem. Nepředstírat, že znakový odhad je přesný.
+- ContextBuilder nejprve rezervuje instrukce/schéma, zdroj a výstup;
+  zbytek rozdělí na relevantní termíny a read-only okolí. Oba mají pevné limity.
+  Když se nevejde samotný překládaný segment, nesmí se potichu zkrátit.
+- GlossaryStore: per-job JSON s schema, revision, entries, proposals a history.
+  SourceIndex/term index jsou odvozené RAM struktury. Zápis jeden worker;
+  sdílení/editace mimo něj nepodporovat bez lock/CAS.
+- Použít samostatnou MemoryStore službu; core neimportuje QueueStore.
+  Atomický writer/lock lze injektovat z composition root. Selhání zápisu je
+  řízená storage_error; nenechat paměť a checkpoint předstírat trvalé uložení.
+- Přesná shoda, aliasy, casefold a omezené slovní hledání; homonyma mají rozdílné
+  sense/domain. Bez povinného embeddingu, vektoru či morfologického analyzátoru.
+- Standard v0.1 pracuje s dodaným/schváleným glosářem. Nevyžaduje plošnou AI
+  extrakci pojmů. Modelové návrhy přidává až extended.
+- ContextualBackend je volitelný port vedle AiBackend: translate_batch(batch,
+  envelope, cancel_event). Vrací strukturované SegmentResult s fragment mapping.
+  Existující AiBackend.translate(text, languages) se nemusí změnit.
+- HttpAiBackend nyní context ignoruje: pouze vyplnění SegmentRequest.context
+  nestačí. P12 musí ověřit skutečný payload/context do modelu fake transportem.
+- AgentBackend doplňuje request_turn(messages, allowed_tools, budget, cancel)
+  → final_segments | tool_requests. Nativní nebo validovaný JSON tool format
+  je providerový adaptér, ne odpovědnost engine. Nezavádět SDK/framework.
+- Nejprve Ollama contextual/agent adaptér + fake backend. Cloudové agentní
+  rozšíření není povinné pro v0.1. Basic cloud provider zůstává funkční.
+  Model bez ověřené contextual/tool schopnosti není kompatibilní s příslušným
+  režimem; TranslateGemma nedostává automaticky obecný agentní prompt.
+
+### Checkpoint a změny glosáře
+
+Nové engine checkpointy mají verzované schéma, identity, validated_segments
+včetně text/markup, term_bindings, used_memory_revision, counters a dirty IDs.
+Identita zahrne zdrojový hash/rozsah, segmentaci, jazyky, model/provider/profile,
+prompt/style revision a translator ID/revision/účinné options.
+Schema/revision mismatch nelze bez důkazu převzít jako validní překlad.
+
+Basic může importovat legacy cache nebo ručně upravené HTML pouze přes bridge
+po stávající validaci zdroje a fragmentů. Neoznačený legacy překlad je basic,
+ne advanced. Advanced staré výsledky bez term/provenance evidence automaticky
+nepoužije. Žádné mazání existujících sidecarů ani přepis ručního HTML při migraci.
+
+Pro každou dávku vytvořit immutable memory view. Extended může přijmout nový
+nekonfliktní termín; existující jiný překlad tvoří proposal/conflict.
+Změna revize se projeví další dávce, ne uprostřed probíhajícího AI požadavku.
+Track source occurrences a bindings, označit již hotové dotčené segmenty dirty
+a opravit je jen v omezeném repair budgetu; nevyřešené označit explicitně.
+
+Paměť a checkpoint nejsou jedna transakce přes dva soubory: uložit nejprve
+atomickou paměť s revision, pak checkpoint, který na ni odkazuje.
+Crash mezi zápisy vyřešit kontrolou revize a dirty množiny při resume; nesmí
+převzít segment závislý na neexistující revizi. Selhání druhého zápisu je fail.
+
+### A04 Struktura společné hranice v0.1
+
+A18 diagram zachycuje advanced internals. Tento diagram zachycuje kontrakty
+a migrační hranici, nikoli duplicitní seznam všech vnitřních komponent.
+
+~~~mermaid
+classDiagram
+    class Worker
+    class LegacyDocumentRunner
+    class TranslationBridge
+    class EngineRegistry {
+        +list() EngineDescriptor
+        +create(selection, dependencies) TranslationEngine
+    }
+    class TranslationEngine {
+        <<interface>>
+        +translate(document, options, context) TranslationResult
+    }
+    class BasicTranslationEngine
+    class AdvancedTranslationEngine
+    class BatchExecutor {
+        <<interface>>
+        +execute(batch, context) results
+    }
+    class LegacyBatchAdapter
+    class ContextualBackend {
+        <<interface>>
+        +translate_batch(batch, envelope, cancel) results
+    }
+    class AgentBackend {
+        <<interface>>
+        +request_turn(messages, tools, budget, cancel) turn
+    }
+    class CheckpointStore
+    class GlossaryStore
+    Worker --> LegacyDocumentRunner : current composition
+    LegacyDocumentRunner --> TranslationBridge
+    TranslationBridge --> EngineRegistry
+    EngineRegistry --> TranslationEngine : constructs
+    TranslationEngine <|.. BasicTranslationEngine
+    TranslationEngine <|.. AdvancedTranslationEngine
+    BasicTranslationEngine --> BatchExecutor
+    BatchExecutor <|.. LegacyBatchAdapter
+    AdvancedTranslationEngine --> ContextualBackend
+    AdvancedTranslationEngine --> AgentBackend : extended only
+    TranslationEngine --> CheckpointStore
+    AdvancedTranslationEngine --> GlossaryStore
+~~~
+
+### Procesní index v0.1
+
+| Proces | Diagram a stav |
+|---|---|
+| Překlad, rušení a výstup | [T01](#t01-preklad-a-obnova), cílový tok |
+| Glosář a konflikty | [T02](#t02-prace-s-pameti), cílový tok |
+| Omezená agentní relace | [T03](#t03-agentni-relace), volitelné extended |
+| Volba a dostupnost modulu | [T04](#t04-volba-prekladoveho-modulu), cílový tok |
+| Zachování produkční legacy I/O při migraci | [T05](#t05-produkci-zachovavajici-migrace), nový integrační tok |
+| Uložení paměti/checkpointu a crash recovery | [T06](#t06-memory-checkpoint-recovery), nový persistovaný tok |
+
+### T05 Produkci zachovavajici migrace
+
+~~~mermaid
+sequenceDiagram
+    participant Worker
+    participant Runner as LegacyDocumentRunner
+    participant Bridge as TranslationBridge
+    participant Engine as Selected TranslationEngine
+    participant Store as CheckpointStore
+    participant Writer as Legacy HTML or PDF adapter
+    Worker->>Runner: run frozen job options and cancellation
+    alt html-to-output
+        Runner->>Writer: validate existing HTML and render without AI
+    else translation
+        Runner->>Runner: extract existing page groups and resources
+        Runner->>Bridge: XHTML plus layout and validated manual overrides
+        Bridge->>Engine: translate with injected executor and controls
+        loop accepted batches
+            Engine->>Store: commit text, markup and provenance
+            Engine-->>Bridge: committed IDs and progress
+            Bridge->>Writer: project results into existing HTML serialization
+        end
+        alt complete
+            Engine-->>Bridge: complete document and metrics
+            Bridge-->>Runner: translated groups or XHTML
+            opt job also requests output
+                Runner->>Writer: existing typesetter
+            end
+        else cancelled or failed
+            Engine-->>Bridge: typed exception with checkpoint
+            Bridge-->>Runner: preserve files and propagate outcome
+            Runner-->>Worker: stop, pause or failed mapping
+        end
+    end
+~~~
+
+### T06 Memory checkpoint recovery
+
+~~~mermaid
+sequenceDiagram
+    participant Engine
+    participant Memory as GlossaryStore
+    participant State as CheckpointStore
+    Engine->>Memory: atomic save accepted revision
+    Memory-->>Engine: revision or storage error
+    alt memory write failed
+        Engine->>Engine: storage_error and no successful batch commit
+    else durable memory
+        Engine->>State: atomic save batch bound to memory revision
+        alt checkpoint write succeeded
+            State-->>Engine: durable accepted batch
+        else failure or crash between files
+            Note over Memory,State: Latest memory may be newer than last durable checkpoint
+            Engine->>State: on restart load last complete checkpoint
+            State-->>Engine: validated segments and referenced revisions
+            Engine->>Memory: compare revisions, bindings and changed term occurrences
+            Memory-->>Engine: compatible view or affected IDs
+            Engine->>Engine: reuse proven compatible segments; repair dirty or fail safely
+        end
+    end
+~~~
+
+### A05 Migrace, kontrolní brány a rozhodnutí
+
+1. P01–P04: regresní ochrana, kontrakt/basic a bezpečné checkpointy.
+2. P05–P08: bridge, JSON a výběr v CLI/GUI; basic v produkčním workeru.
+3. P09–P13: standardní advanced s glosářem a bounded context.
+4. P14–P16: volitelné agentní nástroje/backend/relace, bez plného druhého průchodu.
+5. P17: integrační a výkonové srovnání na krátkých unikátních vzorcích.
+
+Po každém leaf tasku cílené offline testy a diff review, na konci fáze celá sada.
+Live EN→CS smoke a GUI ruční ověření jsou explicitní acceptance kroky,
+nikoli náhrada offline testů; žádný 493/1000stránkový benchmark.
+
+Rizikové body k potvrzení před jejich implementací: P05 bezztrátové legacy
+fragment mapování; P12 prompt kompatibilita konkrétního modelu; P15 ověřená
+agentní capability. Nelze-li splnit kontrakt v rozsahu tasku, doplnit comments,
+připojit důkaz a vrátit návrh k review místo improvizované náhrady.
+
+Hotový první návrh není hotová implementace. Odhady v implementačním tasku
+jsou zbývající engineering práce, ne garantovaná délka běhu Luny.

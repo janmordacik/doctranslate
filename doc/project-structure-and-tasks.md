@@ -175,6 +175,8 @@ Nízká priorita refaktoringu není důvod přeskočit kritické opravy. Po jeji
 | 1 | [Keyring](../tasks/2-2026-10-11-login-chybejici-keyring.md) | test; K01 skutečný backend, K02 ruční evidence; cloud není potřeba |
 | 2 | [Gemini OAuth](../tasks/2-2026-10-11-gemini-oauth-invalid-client.md) | test; G01 offline, G02 uživatelem odložený živý test |
 | 3 | [Styly a benchmark](../tasks/3-2026-10-11-stylove-profily-a-benchmark.md) | created; připravené kroky B01–B08, nezávislé na cloudové autentizaci |
+| návrh před translation refaktoringem | [Pokročilý překladový modul](../tasks/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md) | test: první návrh v0.1 v A19 čeká na review; zadání A18 |
+| po review návrhu | [Implementace překladových modulů](../tasks/3-2026-10-11-prekladove-moduly-implementace.md) | created: hierarchie P01–P18, M1 basic/volba, M2 advanced standard, M3 volitelné tools; samostatné leaf issues s dependencies a odhady |
 | 4 | [Izolované instrukce agenta](../tasks/5-2026-10-10-lokalni-agent-blokovan-continue-serverem.md) | created; dokumentace L01–L02, agenta nespouštět |
 
 Odložený ruční cloudový test neblokuje nezávislé implementační tasky. Zadání

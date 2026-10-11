@@ -45,8 +45,7 @@ src/doctranslate/
 ├── translation/
 │   ├── pipeline.py
 │   ├── batching.py
-│   ├── cache.py
-│   └── pdf_typesetting.py
+│   └── cache.py
 ├── gui/
 └── observability/
 ~~~
@@ -147,3 +146,12 @@ sequenceDiagram
 ## comments
 
 2026-10-11: Task založen na požadavku začít dělit zdrojáky do podadresářů podle modulů. Doporučeno postupné dělení queue, translation runtime, document boundary a benchmark/CLI. Implementace nebyla zahájena.
+
+2026-10-11: Před M04/M05 zohlednit návrh v 3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md. Jde o související architektonické rozhodnutí; mapování a queue refaktoring může pokračovat nezávisle. PDF sazbu cílově ponechat ve výstupním document adaptéru.
+
+2026-10-11: První návrh překladových modulů v0.1 je v doc/modularization-analysis.md
+A19, implementační parent 3-2026-10-11-prekladove-moduly-implementace.md.
+Translation package obsahuje pouze formátově nezávislé engine/memory/planning
+služby. PDF typesetting odstraněn z plánované translation struktury; patří
+do document output adaptéru. Nevytvářet dva konkurenční refaktoringy týchž
+symbolů; M04/M05 musí koordinovat P03/P05/P07. Queue přesuny nejsou jejich blokátor.
