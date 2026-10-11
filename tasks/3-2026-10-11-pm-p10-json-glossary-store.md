@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p02-engine-kontrakt-a-registr.md, 3-2026-10-11-pm-p04-engine-checkpoint.md
 group: translation/engine/memory
@@ -74,3 +74,10 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P10 implementován v translation/memory.py. JsonGlossaryStore má schéma entry/proposal/history, klíč s jazyky/sense/scope, lookup, propose, accept, idempotentní proposal ID, oddělené accepted/proposed/conflict, CAS revision, interní single-writer lock a injektovaný atomický writer. Standardní lookup čte pouze accepted entries.
+
+2026-10-11: Validace: cílené testy 13 passed; celá sada 201 passed, 4 subtests passed. git diff --check bez nálezu.
+
+2026-10-11: Omezení: index je zatím lineární přes JSON entries; vektorová DB, NER prepass a multi-process editace mimo jediný store writer zůstávají záměrně mimo scope.
