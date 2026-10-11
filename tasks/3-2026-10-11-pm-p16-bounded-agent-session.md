@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p04-engine-checkpoint.md, 3-2026-10-11-pm-p13-advanced-standard-engine.md, 3-2026-10-11-pm-p14-managed-memory-tools.md, 3-2026-10-11-pm-p15-agent-backend-port.md
 group: translation/engine/session
@@ -67,12 +67,31 @@ ověření mimo offline testy uvést jako samostatný krok, nikoli tvrdit hotov�
 
 ## Restart a comments
 
-S01: created
-S02: created
-S03: created
-Actual time: unavailable
-Actual logical lines: unavailable
-Actual tokens: unavailable
+S01: done
+S02: done
+S03: done
+Actual time: not measured; completed in one bounded implementation pass
+Actual logical lines: approximately 502 including 315 session lines and 187 test lines; above estimate because budget, callback ordering and stale-output cases are covered
+Actual tokens: not measured
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P16 implementován jako BoundedAgentSession pro jeden segment.
+Relace sestavuje source/context envelope, povoluje pouze MemoryTools allowlist,
+počítá turns/tool calls/revisions/tokens/time, odmítá opakovaný nezměněný výsledek
+a vrací unresolved místo nekonečné smyčky.
+
+2026-10-11: Cancel se kontroluje před i po provider turnu, takže odpověď přijatá
+po zrušení není použita. Mutace memory callbacku proběhne před checkpoint callbackem.
+Výsledek lze převést na ValidatedSegment včetně source/markup, term bindings a
+provenance pro recovery.
+
+2026-10-11: Validace: cílené testy 22 passed; celá sada 240 passed, 4 subtests
+passed; compileall src/doctranslate prošel; git diff --check bez nálezu.
+
+2026-10-11: Omezení pro další task: session zatím není zapojena do
+AdvancedTranslationEngine/workeru, persistentní dirty state a skutečný checkpoint
+write callback musí dodat integrační task. Max-time vrací typed AgentSessionError,
+zatímco turn/tool budget vrací unresolved výsledek.
