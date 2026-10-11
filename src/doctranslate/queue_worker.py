@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+import copy
+from dataclasses import dataclass, field
 import json
 import os
 from pathlib import Path
@@ -43,6 +44,8 @@ class JobOptions:
     first_page: int
     last_page: int | None
     target_variant: str = "auto"
+    translator_id: str = "basic"
+    translator_options: dict = field(default_factory=dict)
 
     @classmethod
     def from_job(cls, job: dict) -> "JobOptions":
@@ -61,6 +64,8 @@ class JobOptions:
             first_page=job.get("first_page", 1),
             last_page=job.get("last_page"),
             target_variant=job.get("target_variant", "auto"),
+            translator_id=job.get("translator_id", "basic"),
+            translator_options=copy.deepcopy(job.get("translator_options", {})),
         )
 
 

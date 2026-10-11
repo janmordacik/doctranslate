@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 import hashlib
 import json
 from pathlib import Path
 import threading
-from typing import Callable
+from typing import Any, Callable, Mapping
 
 from .ai.contracts import AiBackend, SegmentRequest
 from .ai.styles import StyleLibrary
@@ -30,6 +30,8 @@ class JobSpec:
     provider_id: str = "ollama"
     profile_id: str | None = None
     model: str = ""
+    translator_id: str = "basic"
+    translator_options: Mapping[str, Any] = field(default_factory=dict)
     phase: str = "both"
     target_variant: str = "auto"
     style_revision: str | None = None
@@ -88,6 +90,8 @@ class JobRunner:
             "provider": spec.provider_id,
             "profile": spec.profile_id,
             "model": spec.model,
+            "translator_id": spec.translator_id,
+            "translator_options": dict(spec.translator_options),
             "target_variant": spec.target_variant,
             "style_revision": style_revision,
             "prompt_revision": spec.prompt_revision,

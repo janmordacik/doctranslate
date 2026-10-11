@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p02-engine-kontrakt-a-registr.md
 group: translation/engine/job-schema
@@ -77,3 +77,6 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+2026-10-11: Queue job schema nyní nese translator_id a translator_options; chybějící hodnoty se při normalizaci mapují na basic/{}. Syntaxe ID/options se validuje bez runtime discovery, takže budoucí nedostupný modul lze uložit a worker jej později odmítne s konkrétní chybou. JobSpec/JobOptions kopírují volbu a identity hash ji zahrnuje.
+2026-10-11: Cílené testy: 51 passed; celá offline sada: 178 passed, 4 subtests passed. git diff --check bez chyb. GUI/CLI ovládací prvky a skutečný dispatch zůstávají P07/P08.

@@ -21,7 +21,7 @@ import time
 import uuid
 import urllib.request
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from .ai import StyleLibrary
 from .config import CONFIG_FILE, get_language, get_workdir, save_config
@@ -578,6 +578,18 @@ class QueueStore:
                 raise ValueError(f"Invalid job state or phase: {job['id']}")
             if job.get("model") is not None and not isinstance(job.get("model"), str):
                 raise ValueError(f"Invalid job model: {job['id']}")
+            translator_id = job.get("translator_id", "basic")
+            if not isinstance(translator_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", translator_id):
+                raise ValueError(f"Invalid job translator ID: {job['id']}")
+            translator_options = job.get("translator_options", {})
+            if not isinstance(translator_options, dict):
+                raise ValueError(f"Invalid job translator options: {job['id']}")
+            try:
+                json.dumps(translator_options)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Invalid job translator options: {job['id']}") from exc
+            job["translator_id"] = translator_id
+            job["translator_options"] = copy.deepcopy(translator_options)
             if job.get("target_variant") is None:
                 job["target_variant"] = "auto"
             if not isinstance(job.get("target_variant"), str) or not job["target_variant"].strip():
@@ -789,6 +801,8 @@ def make_job(
     phase: str = "both",
     target_variant: str = "auto",
     style_revision: str | None = None,
+    translator_id: str = "basic",
+    translator_options: Mapping[str, Any] | None = None,
     html_file: str | Path | None = None,
     first_page: int | None = None,
     last_page: int | None = None,
@@ -813,6 +827,8 @@ def make_job(
         "phase": phase,
         "target_variant": target_variant or "auto",
         "style_revision": style_revision,
+        "translator_id": translator_id or "basic",
+        "translator_options": copy.deepcopy(translator_options or {}),
         **({"html_file": str(Path(html_file).expanduser().resolve())} if html_file else {}),
         **({"first_page": first_page} if first_page is not None else {}),
         **({"last_page": last_page} if last_page is not None else {}),
