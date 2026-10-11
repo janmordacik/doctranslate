@@ -147,7 +147,7 @@ sequenceDiagram
 
 2026-10-11: Task založen na požadavku začít dělit zdrojáky do podadresářů podle modulů. Doporučeno postupné dělení queue, translation runtime, document boundary a benchmark/CLI. Implementace nebyla zahájena.
 
-2026-10-11: Před M04/M05 zohlednit návrh v 3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md. Jde o související architektonické rozhodnutí; mapování a queue refaktoring může pokračovat nezávisle. PDF sazbu cílově ponechat ve výstupním document adaptéru.
+2026-10-11: Před M04/M05 zohlednit návrh v done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md. Jde o související architektonické rozhodnutí; mapování a queue refaktoring může pokračovat nezávisle. PDF sazbu cílově ponechat ve výstupním document adaptéru.
 
 2026-10-11: První návrh překladových modulů v0.1 je v doc/modularization-analysis.md
 A19, implementační parent 3-2026-10-11-prekladove-moduly-implementace.md.

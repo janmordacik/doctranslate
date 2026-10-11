@@ -1,6 +1,6 @@
 status: created
 last change: 2026-10-11
-dependency: 3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p04-engine-checkpoint.md, 3-2026-10-11-pm-p13-advanced-standard-engine.md, 3-2026-10-11-pm-p14-managed-memory-tools.md, 3-2026-10-11-pm-p15-agent-backend-port.md
+dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p04-engine-checkpoint.md, 3-2026-10-11-pm-p13-advanced-standard-engine.md, 3-2026-10-11-pm-p14-managed-memory-tools.md, 3-2026-10-11-pm-p15-agent-backend-port.md
 group: translation/engine/session
 type: feature
 estimate:

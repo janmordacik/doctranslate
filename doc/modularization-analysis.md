@@ -866,7 +866,7 @@ Implementation is offline tested. The GUI target-language selector is implemente
 ## A18 Pokročilý překlad dlouhých textů — zadání a cílový návrh
 
 Stav: návrh podle zadání 2026-10-11, není implementováno.
-Issue: [návrh překladového modulu](../tasks/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md).
+Issue: [návrh překladového modulu](../tasks/done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md).
 Tato sekce je autoritativní pro nový engine; stávající procesy P00–P07
 a implementované kontrakty zůstávají výchozím stavem pro migrační analýzu.
 

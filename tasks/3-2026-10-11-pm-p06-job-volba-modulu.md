@@ -1,6 +1,6 @@
 status: created
 last change: 2026-10-11
-dependency: 3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p02-engine-kontrakt-a-registr.md
+dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p02-engine-kontrakt-a-registr.md
 group: translation/engine/job-schema
 type: feature
 estimate:

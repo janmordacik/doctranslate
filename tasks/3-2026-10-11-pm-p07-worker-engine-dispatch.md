@@ -1,6 +1,6 @@
 status: created
 last change: 2026-10-11
-dependency: 3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p03-basic-engine.md, 3-2026-10-11-pm-p04-engine-checkpoint.md, 3-2026-10-11-pm-p05-legacy-xhtml-bridge.md, 3-2026-10-11-pm-p06-job-volba-modulu.md
+dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p03-basic-engine.md, 3-2026-10-11-pm-p04-engine-checkpoint.md, 3-2026-10-11-pm-p05-legacy-xhtml-bridge.md, 3-2026-10-11-pm-p06-job-volba-modulu.md
 group: translation/engine/worker
 type: feature
 estimate:

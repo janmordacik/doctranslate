@@ -247,3 +247,17 @@ znovu načíst aktuální kontext a ověřit git diff --check.
 Tímto postupem byly zapsány změny implementačního plánu a tasku bez poškození
 zdrojů. Stav: funkční workaround.
 Datum: 2026-10-11.
+
+## 2026-10-11: apply_patch a reparse point projektu
+
+### Chyba
+
+apply_patch nedokázal načíst soubor v projektu a oznámil: path contains a reparse point.
+
+### Ověřený workaround
+
+Nejprve ověřit skutečnou cestu pomocí Node fs.realpath. Pokud je cesta dostupná, použít opatrný textový zápis přes Node fs po předchozím načtení a přesné náhradě obsahu; následně ověřit diff.
+
+### Stav
+
+Dokumentační změna A19 byla zapsána bez zásahu do produkčního kódu.

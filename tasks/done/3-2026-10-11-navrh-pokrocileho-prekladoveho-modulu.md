@@ -1,4 +1,4 @@
-status: test
+status: done
 last change: 2026-10-11
 dependency: none
 group: architecture/translation-engine
@@ -217,3 +217,4 @@ legacy workeru, společná facade, registry, provider porty, checkpoint/memory
 recovery a procesy T05/T06. Připraven parent P01–P18 a samostatné leaf issues
 pro Lunu s časem/řádky/tokeny, dependency a minimálním kontextem.
 Status test znamená review návrhu, nikoli runtime test hotové implementace.
+\n2026-10-11: Uživatel formálně schválil návrh A19 pro zahájení implementace. Návrh je akceptačním základem pro P01–P18; případné rozpory zjištěné během implementace se řeší další iterací architektury a aktualizací závislých tasků.\n

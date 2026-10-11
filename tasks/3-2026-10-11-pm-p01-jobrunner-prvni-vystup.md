@@ -1,6 +1,6 @@
 status: created
 last change: 2026-10-11
-dependency: 3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md
+dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md
 group: translation/engine/regression
 type: bug
 estimate:

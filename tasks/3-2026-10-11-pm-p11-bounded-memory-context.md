@@ -1,6 +1,6 @@
 status: created
 last change: 2026-10-11
-dependency: 3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p09-semantic-batch-planner.md, 3-2026-10-11-pm-p10-json-glossary-store.md
+dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p09-semantic-batch-planner.md, 3-2026-10-11-pm-p10-json-glossary-store.md
 group: translation/engine/context
 type: feature
 estimate:

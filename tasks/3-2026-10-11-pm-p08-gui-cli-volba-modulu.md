@@ -1,6 +1,6 @@
 status: created
 last change: 2026-10-11
-dependency: 3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p06-job-volba-modulu.md, 3-2026-10-11-pm-p07-worker-engine-dispatch.md
+dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p06-job-volba-modulu.md, 3-2026-10-11-pm-p07-worker-engine-dispatch.md
 group: translation/engine/gui-cli
 type: feature
 estimate:

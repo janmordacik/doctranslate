@@ -1,6 +1,6 @@
 status: created
 last change: 2026-10-11
-dependency: 3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p10-json-glossary-store.md, 3-2026-10-11-pm-p11-bounded-memory-context.md, 3-2026-10-11-pm-p13-advanced-standard-engine.md
+dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p10-json-glossary-store.md, 3-2026-10-11-pm-p11-bounded-memory-context.md, 3-2026-10-11-pm-p13-advanced-standard-engine.md
 group: translation/engine/tools
 type: feature
 estimate:
