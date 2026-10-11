@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: none
 group: tooling/local-agent
@@ -60,3 +60,14 @@ comments:
 2026-10-10: Doplněna metadata dependency, group a type podle projektových pravidel. Závislosti určují předpoklady implementace; stav created zachován.
 2026-10-10: Nezpracováno; read calibration qwen3-coder:30b Native znovu skončila před tool callem na Continue serveru. Bez změny globální konfigurace nelze tooling bezpečně opravit v rámci této úlohy.
 2026-10-11: Revize promítla dřívější pokyn uživatele: pouze připravit instrukce, agenta nespouštět a nejnižší priorita. Soubor přejmenován na prioritu 5; historická evidence selhání zachována. Přidány L01–L02 a odstraněn zastaralý předpoklad, že ostatní implementace čeká na opravu Continue. Revize agenta nespouštěla.
+
+
+2026-10-11: Statická kontrola dokončena bez spuštění agenta. tasks-local-ai/README.md,
+INDEX.md, context/00–05 a tasky 01–10 existují; README výslovně zakazuje
+automatické spuštění, commit, push, síť a globální změny. Pořadí, izolované
+kontexty, provozní edge cases a tools cookbook jsou přítomné. Nebyla zjištěna
+mezera, která by odůvodnila změnu balíčku.
+
+2026-10-11: Task uzavřen jako dokumentační příprava. Schopnost lokálního agenta
+nebyla nově ověřena a žádný agent nebyl spuštěn. Budoucí delegace vyžaduje nové
+výslovné zadání a zdravotní diagnostiku podle AGENTS.md.
