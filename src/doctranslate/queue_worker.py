@@ -21,6 +21,13 @@ from .queue_app import (
     utc_now,
 )
 from .retention import cleanup_queue_workdirs
+from .translation import (
+    TranslationCancelled,
+    TranslationContext,
+    TranslationEngineRegistry,
+    TranslationError,
+    TranslationOptions,
+)
 
 PREVIEW_UPDATE_INTERVAL_SECONDS = 10.0
 PREVIEW_TERMINAL_STAGES = frozenset({"translated", "error", "stopped", "done", "failed"})
@@ -69,10 +76,40 @@ class JobOptions:
         )
 
 
+
+class WorkerTranslationDispatcher:
+    """Resolve a per-job engine without coupling the worker to a provider."""
+
+    def __init__(self, registry: TranslationEngineRegistry) -> None:
+        self.registry = registry
+
+    def create(self, job: dict, dependencies: object):
+        """Validate job selection and create one injected engine instance."""
+        options = TranslationOptions(
+            source_language=job.get("inlang", "en"),
+            target_language=job.get("outlang", "cs"),
+            target_variant=job.get("target_variant", "auto"),
+            translator_options=job.get("translator_options", {}),
+        )
+        engine = self.registry.create(
+            job.get("translator_id", "basic"),
+            dependencies,
+            options,
+        )
+        descriptor = self.registry.get(job.get("translator_id", "basic"))
+        return engine, descriptor, options
+
+
 class Worker:
     """Singleton worker that polls JSON control state between safe work boundaries."""
 
-    def __init__(self, queue_path: Path):
+    def __init__(
+        self,
+        queue_path: Path,
+        *,
+        engine_registry: TranslationEngineRegistry | None = None,
+        engine_runner=None,
+    ):
         self.store = QueueStore(queue_path)
         self.logger = self.store.logger
         self.cancel_event = threading.Event()
@@ -89,6 +126,8 @@ class Worker:
         self.control_monitor_thread: threading.Thread | None = None
         self.state_path = self.store.path.with_name("worker-state.json")
         self.worker_lock = self.store.path.with_name("worker.lock")
+        self.engine_registry = engine_registry
+        self.engine_runner = engine_runner
 
     def write_state(self, state: str, emit_event: bool = True, **extra) -> None:
         """Persist diagnostic state and mirror it as a structured event."""
@@ -297,6 +336,8 @@ class Worker:
             job_id=self.current_job_id,
             model=options.model,
             phase=options.phase,
+            translator_id=options.translator_id,
+            translator_options=options.translator_options,
         )
         self.mark_job(
             self.current_job_id,
@@ -339,7 +380,56 @@ class Worker:
             translate.FIRST_PAGE = options.first_page
             translate.LAST_PAGE = options.last_page
             translate.configure_phases(options.phase, html_file)
-            translate.main(self.cancel_event)
+            if options.phase == "pdf":
+                self.logger.event("worker.translation.render_only", job_id=self.current_job_id)
+                translate.main(self.cancel_event)
+            elif self.engine_registry is not None:
+                dispatcher = WorkerTranslationDispatcher(self.engine_registry)
+                engine, descriptor, translation_options = dispatcher.create(
+                    job, {"worker": self, "translate": translate}
+                )
+                self.logger.event(
+                    "worker.translation.engine.selected",
+                    job_id=self.current_job_id,
+                    translator_id=descriptor.id,
+                    translator_revision=descriptor.revision,
+                )
+                if self.engine_runner is None:
+                    raise TranslationError(
+                        "engine_runner_missing",
+                        "No engine runner was injected for the selected translation engine",
+                    )
+                context = TranslationContext(
+                    cancel_event=self.cancel_event,
+                    on_progress=lambda completed, total: self.report_progress(
+                        completed, total, unit="blocks"
+                    ),
+                    on_preview=self.publish_preview,
+                    logger=self.logger.event,
+                )
+                self.engine_runner(engine, translation_options, context)
+            else:
+                if options.translator_id != "basic":
+                    raise TranslationError(
+                        "engine_unavailable",
+                        f"Translation engine {options.translator_id!r} is not wired into this worker",
+                    )
+                self.logger.event(
+                    "worker.translation.legacy_compat",
+                    job_id=self.current_job_id,
+                    translator_id=options.translator_id,
+                    translator_revision="legacy-basic-v1",
+                )
+                translate.main(self.cancel_event)
+        except TranslationCancelled as exc:
+            current = next(
+                (item for item in self.store.jobs() if item.get("id") == self.current_job_id),
+                None,
+            )
+            if current and current.get("state") == "in_progress":
+                self.mark_job(self.current_job_id, "in_progress")
+            self.write_state("paused" if current and current.get("state") == "paused" else "stopped")
+            raise KeyboardInterrupt() from exc
         except KeyboardInterrupt:
             # Stop keeps in_progress for restart; pause keeps the explicit paused state.
             current = next(

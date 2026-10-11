@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p03-basic-engine.md, 3-2026-10-11-pm-p04-engine-checkpoint.md, 3-2026-10-11-pm-p05-legacy-xhtml-bridge.md, 3-2026-10-11-pm-p06-job-volba-modulu.md
 group: translation/engine/worker
@@ -76,3 +76,10 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P07 implementován. Worker má explicitní per-job dispatch přes TranslationEngineRegistry a injektovaný engine runner, loguje ID/revizi modulu, předává progress/preview/cancel/logger callbacks, rozlišuje typed cancellation a chyby; PDF fáze zůstává render-only. Neznámý advanced engine bez dispatch wiring selže typed chybou místo tichého fallbacku.
+
+2026-10-11: Validace: cílené testy 53 passed; celá sada 182 passed, 4 subtests passed. git diff --check bez nálezu.
+
+2026-10-11: Známé omezení / follow-up: standardní produkční composition root zatím registry a engine runner nevytváří, takže základní engine v běžném legacy workeru používá kompatibilní translate.main. Skutečné dosazení XHTML/PDF runneru do composition rootu je samostatná integrační práce; test seam je připraven a brání nechtěnému fallbacku advanced modulů.
