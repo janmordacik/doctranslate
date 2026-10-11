@@ -23,6 +23,7 @@ import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from .ai import StyleLibrary
 from .config import CONFIG_FILE, get_language, get_workdir, save_config
 from .observability import JsonEventLogger, queue_log_path
 from .retention import RetentionPolicy, cleanup_queue_workdirs
@@ -34,6 +35,7 @@ WORKER_SCRIPT = Path(__file__).resolve().with_name("queue_worker.py")
 WORKER_STATE = ROOT / "worker-state.json"
 WORKER_LOCK = ROOT / "worker.lock"
 JOB_STATES = ("prepared", "in_progress", "paused", "failed", "done")
+LANGUAGE_CHOICES = ("en", "cs", "de", "es", "fr", "it", "pl", "sk")
 OLLAMA_URL = os.environ.get("TRANSLATE_OLLAMA_URL", "http://localhost:11434").rstrip("/")
 DEFAULT_MODEL = os.environ.get("TRANSLATE_MODEL", "qwen3.8:27b")
 
@@ -47,6 +49,8 @@ GUI_TEXT = {
         "up": "Nahoru", "down": "Dolů", "refresh": "Obnovit",
         "order": "Pořadí", "job": "Úloha", "state": "Stav", "input": "Vstup",
         "provider": "Poskytovatel", "profile": "Profil", "configure": "Konfigurace…", "login": "Přihlásit",
+        "style": "Styl", "style_auto": "automaticky podle autora",
+        "source_language": "Zdrojový jazyk", "target_language": "Cílový jazyk",
          "provider_test": "Otestovat spojení", "provider_save": "Uložit", "provider_cancel": "Zrušit", "provider_probe": "Test poskytovatele",
          "login_completed": "Přihlášení dokončeno.",
          "output": "Výstup", "model": "Model", "phase": "Fáze",
@@ -61,6 +65,7 @@ GUI_TEXT = {
         "input_invalid": "Vstup musí být existující PDF soubor.",
         "output_invalid": "Výstup musí být jiné PDF než vstup.",
         "html_invalid": "XHTML/HTML musí mít příponu .html nebo .htm.",
+        "same_language": "Při stejném zdrojovém a cílovém jazyce zvolte explicitní styl.",
         "running": "běží", "stopped": "neběží", "unsent": " * neodeslané změny",
          "status": "Worker: {worker} | revize: {revision}{marker}",
          "stopping": "worker se zastavuje…",
@@ -99,6 +104,8 @@ GUI_TEXT = {
         "up": "Up", "down": "Down", "refresh": "Refresh",
         "order": "Order", "job": "Job", "state": "State", "input": "Input",
         "provider": "Provider", "profile": "Profile", "configure": "Configuration…", "login": "Login",
+        "style": "Style", "style_auto": "preserve source style",
+        "source_language": "Source language", "target_language": "Target language",
          "login_completed": "Login completed.",
          "provider_test": "Test connection", "provider_save": "Save", "provider_cancel": "Cancel", "provider_probe": "Provider probe",
          "output": "Output", "model": "Model", "phase": "Phase",
@@ -113,6 +120,7 @@ GUI_TEXT = {
         "input_invalid": "The input must be an existing PDF file.",
         "output_invalid": "The output must be a different PDF file.",
         "html_invalid": "XHTML/HTML must use the .html or .htm extension.",
+        "same_language": "Choose an explicit style when source and target languages are the same.",
         "running": "running", "stopped": "stopped", "unsent": " * unsent changes",
          "status": "Worker: {worker} | revision: {revision}{marker}",
          "stopping": "worker is stopping…",
@@ -570,6 +578,24 @@ class QueueStore:
                 raise ValueError(f"Invalid job state or phase: {job['id']}")
             if job.get("model") is not None and not isinstance(job.get("model"), str):
                 raise ValueError(f"Invalid job model: {job['id']}")
+            if job.get("target_variant") is None:
+                job["target_variant"] = "auto"
+            if not isinstance(job.get("target_variant"), str) or not job["target_variant"].strip():
+                raise ValueError(f"Invalid job target variant: {job['id']}")
+            job["target_variant"] = job["target_variant"].strip()
+            try:
+                from .ai.styles import StyleLibrary
+
+                style_library = StyleLibrary()
+                job["target_variant"] = style_library.resolve_variant(
+                    job["target_variant"], job["outlang"]
+                )
+                # Recompute on load so a catalog edit invalidates old cache entries.
+                job["style_revision"] = style_library.fingerprint(job["target_variant"])
+            except (ImportError, ValueError) as exc:
+                raise ValueError(f"Invalid job style profile: {job['id']}") from exc
+            if not isinstance(job.get("style_revision"), str) or not job["style_revision"].strip():
+                raise ValueError(f"Invalid job style revision: {job['id']}")
             for page_key in ("first_page", "last_page"):
                 page_value = job.get(page_key)
                 if page_value is not None and (
@@ -761,6 +787,8 @@ def make_job(
     input_format: str | None = None,
     output_format: str | None = None,
     phase: str = "both",
+    target_variant: str = "auto",
+    style_revision: str | None = None,
     html_file: str | Path | None = None,
     first_page: int | None = None,
     last_page: int | None = None,
@@ -783,6 +811,8 @@ def make_job(
         "input_format": input_format,
         "output_format": output_format,
         "phase": phase,
+        "target_variant": target_variant or "auto",
+        "style_revision": style_revision,
         **({"html_file": str(Path(html_file).expanduser().resolve())} if html_file else {}),
         **({"first_page": first_page} if first_page is not None else {}),
         **({"last_page": last_page} if last_page is not None else {}),
@@ -1041,6 +1071,10 @@ class QueueGui:
         self.model_var = tk.StringVar(value=DEFAULT_MODEL)
         self.provider_var = tk.StringVar(value="ollama")
         self.profile_var = tk.StringVar(value="")
+        self.style_var = tk.StringVar(value="auto")
+        self.style_display_var = tk.StringVar(value="")
+        self.source_language_var = tk.StringVar(value="en")
+        self.target_language_var = tk.StringVar(value="cs")
         self.phase_var = tk.StringVar(value="both")
         self.phase_display_var = tk.StringVar(value="")
         self.input_var = tk.StringVar(value="")
@@ -1050,6 +1084,9 @@ class QueueGui:
         self.phase_display_choices = ()
         self.provider_choices = ("ollama", "openai", "gemini", "claude")
         self.profile_choices = ()
+        self.style_library = StyleLibrary()
+        self.style_choices = self._style_choices_for_language("cs")
+        self.style_display_choices = ()
         self.model_choices = [DEFAULT_MODEL]
         self.model_discovery = OllamaDiscovery("offline")
         self.model_refreshing = False
@@ -1154,6 +1191,24 @@ class QueueGui:
         self.buttons["browse_output"] = tk.Button(output_row, command=self.choose_output)
         self.buttons["browse_output"].pack(side="left", padx=(2, 6), pady=3)
 
+        language_row = tk.Frame(job_detail)
+        language_row.pack(fill="x")
+        self.labels["source_language"] = tk.Label(language_row)
+        self.labels["source_language"].pack(side="left", padx=(6, 2), pady=3)
+        self.source_language_combo = ttk.Combobox(
+            language_row, textvariable=self.source_language_var, values=LANGUAGE_CHOICES,
+            state="readonly", width=8
+        )
+        self.source_language_combo.pack(side="left", padx=(2, 10), pady=3)
+        self.labels["target_language"] = tk.Label(language_row)
+        self.labels["target_language"].pack(side="left", padx=(6, 2), pady=3)
+        self.target_language_combo = ttk.Combobox(
+            language_row, textvariable=self.target_language_var, values=LANGUAGE_CHOICES,
+            state="readonly", width=8
+        )
+        self.target_language_combo.pack(side="left", padx=(2, 10), pady=3)
+        self.target_language_combo.bind("<<ComboboxSelected>>", self.change_target_language)
+
         options_row = tk.Frame(job_detail)
         options_row.pack(fill="x")
         self.labels["phase"] = tk.Label(options_row)
@@ -1164,6 +1219,17 @@ class QueueGui:
         )
         self.phase_combo.pack(side="left", padx=(2, 10), pady=3)
         self.phase_combo.bind("<<ComboboxSelected>>", self.change_phase)
+        self.labels["style"] = tk.Label(options_row)
+        self.labels["style"].pack(side="left", padx=(6, 2), pady=3)
+        self.style_combo = ttk.Combobox(
+            options_row,
+            textvariable=self.style_display_var,
+            values=self.style_display_choices,
+            state="readonly",
+            width=30,
+        )
+        self.style_combo.pack(side="left", padx=(2, 6), pady=3)
+        self.style_combo.bind("<<ComboboxSelected>>", self.change_style)
         self.labels["html_file"] = tk.Label(options_row)
         self.labels["html_file"].pack(side="left", padx=(2, 2), pady=3)
         self.html_file_entry = tk.Entry(options_row, textvariable=self.html_file_var, state="readonly")
@@ -1262,7 +1328,9 @@ class QueueGui:
         model_state = "readonly" if not editing or self._provider_options()["model_discovery"] else "normal"
         for widget in (self.input_file_entry, self.output_file_entry, self.html_file_entry):
             widget.configure(state=entry_state)
-        for widget in (self.provider_combo, self.profile_combo, self.phase_combo):
+        for widget in (self.provider_combo, self.profile_combo, self.phase_combo, self.style_combo):
+            widget.configure(state=combo_state)
+        for widget in (self.source_language_combo, self.target_language_combo):
             widget.configure(state=combo_state)
         self.model_combo.configure(state=model_state)
         for key in ("browse_input", "browse_output", "browse_html", "configure", "login"):
@@ -1321,6 +1389,9 @@ class QueueGui:
         self.labels["input_file"].configure(text=self._t("input_file"))
         self.labels["output_file"].configure(text=self._t("output_file"))
         self.labels["phase"].configure(text=self._t("phase"))
+        self.labels["style"].configure(text=self._t("style"))
+        self.labels["source_language"].configure(text=self._t("source_language"))
+        self.labels["target_language"].configure(text=self._t("target_language"))
         self.labels["html_file"].configure(text=self._t("html_file"))
         self.buttons["browse_input"].configure(text=self._t("browse_input"))
         self.buttons["browse_output"].configure(text=self._t("browse_output"))
@@ -1332,6 +1403,11 @@ class QueueGui:
         )
         self.phase_combo.configure(values=self.phase_display_choices)
         self._set_phase_value(self.phase_var.get())
+        self.style_display_choices = tuple(
+            self._style_display(style_id) for style_id in self.style_choices
+        )
+        self.style_combo.configure(values=self.style_display_choices)
+        self._set_style_value(self.style_var.get())
         self._refresh_provider_controls()
         self._set_job_form_state(self.form_editing)
         for column, key in self.column_keys.items():
@@ -1415,6 +1491,67 @@ class QueueGui:
         self.phase_var.set(value)
         self.phase_display_var.set(self._phase_display(value))
 
+    def _style_display(self, style_id: str) -> str:
+        if style_id == "auto":
+            return self._t("style_auto")
+        try:
+            library = getattr(self, "style_library", None) or StyleLibrary()
+            profile = library.load(style_id)
+        except Exception:
+            return style_id
+        return f"{profile.name} [{profile.id}]"
+
+    def _style_choices_for_language(self, language: str) -> tuple[str, ...]:
+        """Return the implicit auto option plus profiles for one target language."""
+        try:
+            profiles = self.style_library.list(language)
+        except (TypeError, ValueError):
+            profiles = ()
+        return ("auto",) + tuple(profile.id for profile in profiles)
+
+    def _refresh_style_choices(self) -> None:
+        """Keep the style selector compatible with the selected target language."""
+        if not hasattr(self, "target_language_var") or not hasattr(self, "style_combo"):
+            return
+        self.style_choices = self._style_choices_for_language(self.target_language_var.get())
+        self.style_display_choices = tuple(
+            self._style_display(style_id) for style_id in self.style_choices
+        )
+        self.style_combo.configure(values=self.style_display_choices)
+        self._set_style_value(self.style_var.get())
+
+    def _set_style_value(self, style_id: Any) -> None:
+        value = str(style_id or "auto").strip()
+        choices = getattr(self, "style_choices", ("auto",))
+        if value not in choices:
+            value = "auto"
+        if hasattr(self, "style_var"):
+            self.style_var.set(value)
+        if hasattr(self, "style_display_var"):
+            self.style_display_var.set(self._style_display(value))
+
+    def change_style(self, _event: Any = None) -> None:
+        selected = self.style_display_var.get().strip()
+        value = next(
+            (
+                style_id
+                for style_id in getattr(self, "style_choices", ("auto",))
+                if self._style_display(style_id) == selected
+            ),
+            "auto",
+        )
+        if self.form_editing:
+            self.style_var.set(value)
+
+    def change_target_language(self, _event: Any = None) -> None:
+        """Refresh available explicit styles after a target-language change."""
+        if not self.form_editing:
+            return
+        target = self.target_language_var.get().strip().lower()
+        if target not in LANGUAGE_CHOICES:
+            self.target_language_var.set("cs")
+        self._refresh_style_choices()
+
     def refresh_models(self) -> None:
         if self.model_refreshing:
             return
@@ -1466,6 +1603,10 @@ class QueueGui:
         self.provider_var.set("ollama")
         self.profile_var.set("")
         self.model_var.set(DEFAULT_MODEL)
+        self.source_language_var.set("en")
+        self.target_language_var.set("cs")
+        self._refresh_style_choices()
+        self._set_style_value("auto")
         self._set_phase_value("both")
         self.input_var.set("")
         self.output_var.set("")
@@ -1483,6 +1624,10 @@ class QueueGui:
         self.provider_var.set(job.get("provider") or "ollama")
         self.profile_var.set(job.get("profile") or "")
         self.model_var.set(job.get("model") or DEFAULT_MODEL)
+        self.source_language_var.set(job.get("inlang") or "en")
+        self.target_language_var.set(job.get("outlang") or "cs")
+        self._refresh_style_choices()
+        self._set_style_value(job.get("target_variant") or "auto")
         self._set_phase_value(job.get("phase") or "both")
         self.input_var.set(job.get("input") or "")
         self.output_var.set(job.get("output") or "")
@@ -1517,7 +1662,8 @@ class QueueGui:
         self.input_var.set(str(source))
         from .filename_policy import suggested_output
 
-        output = suggested_output(source, "cs")
+        target_language = self.target_language_var.get().strip() or "cs"
+        output = suggested_output(source, target_language)
         html = output.with_suffix(".html")
         if not self.output_var.get().strip() or self.output_var.get() == old_output:
             self.output_var.set(str(output))
@@ -1818,6 +1964,10 @@ class QueueGui:
         self.provider_var.set("ollama")
         self.profile_var.set("")
         self.model_var.set(DEFAULT_MODEL)
+        self.source_language_var.set("en")
+        self.target_language_var.set("cs")
+        self._refresh_style_choices()
+        self._set_style_value("auto")
         self.auto_output_suggestion = None
         self.auto_html_suggestion = None
         self.editing_job_template = None
@@ -1841,6 +1991,12 @@ class QueueGui:
         self.provider_var.set(source.get("provider") or "ollama")
         self.profile_var.set(source.get("profile") or "")
         self.model_var.set(source.get("model") or DEFAULT_MODEL)
+        if hasattr(self, "source_language_var"):
+            self.source_language_var.set(source.get("inlang") or "en")
+        if hasattr(self, "target_language_var"):
+            self.target_language_var.set(source.get("outlang") or "cs")
+        self._refresh_style_choices()
+        self._set_style_value(source.get("target_variant") or "auto")
         self.auto_output_suggestion = None
         self.auto_html_suggestion = None
         self._set_job_form_state(True)
@@ -1874,17 +2030,36 @@ class QueueGui:
             self.messagebox.showerror(self._t("html_file"), self._t("html_invalid"))
             return
         template = self.editing_job_template or {}
+        source_language = (
+            self.source_language_var.get().strip()
+            if hasattr(self, "source_language_var")
+            else template.get("inlang", "en")
+        ) or template.get("inlang", "en")
+        target_language = (
+            self.target_language_var.get().strip()
+            if hasattr(self, "target_language_var")
+            else template.get("outlang", "cs")
+        ) or template.get("outlang", "cs")
+        target_variant = (
+            self.style_var.get().strip()
+            if hasattr(self, "style_var")
+            else "auto"
+        ) or "auto"
+        if source_language == target_language and target_variant == "auto":
+            self.messagebox.showerror(self._t("target_language"), self._t("same_language"))
+            return
         job = make_job(
             source,
             target,
-            inlang=template.get("inlang", "en"),
-            outlang=template.get("outlang", "cs"),
+            inlang=source_language,
+            outlang=target_language,
             model=self.model_var.get().strip() or None,
             provider=self.provider_var.get().strip() or "ollama",
             profile=self.profile_var.get().strip() or None,
             input_format=template.get("input_format"),
             output_format=template.get("output_format"),
             phase=self.phase_var.get().strip() or "both",
+            target_variant=target_variant,
             html_file=html_file,
             first_page=template.get("first_page"),
             last_page=template.get("last_page"),

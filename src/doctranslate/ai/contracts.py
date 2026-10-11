@@ -72,8 +72,10 @@ class AiBackend(Protocol):
         text: str,
         source_language: str,
         target_language: str,
+        *,
+        target_variant: str = "auto",
     ) -> str:
-        """Translate one text value without knowing the source file format."""
+        """Translate one text value with an optional target style variant."""
         ...
 
     def translate_segments(

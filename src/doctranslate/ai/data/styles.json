@@ -1,0 +1,325 @@
+{
+  "schema": 1,
+  "catalog_version": "1.0",
+  "profiles": [
+    {
+      "id": "cs-modern-standard",
+      "name": "Moderní spisovná čeština",
+      "language": "cs",
+      "description": "Neutrální současný spisovný jazyk bez vnuceného autorského stylu.",
+      "version": "1.0",
+      "prompt": {
+        "must": ["Zachovej význam, logiku a terminologii zdroje."],
+        "should": ["Piš přirozenou současnou spisovnou češtinou."],
+        "avoid": ["Nepřidávej ozdobnost, slang ani archaizaci bez opory ve zdroji."],
+        "forbidden": []
+      },
+      "policy": {
+        "register": "standard",
+        "period": "modern",
+        "expressivity": "source",
+        "vulgarity": "preserve-if-present",
+        "fidelity": "preserve-meaning-and-intensity",
+        "caricature_intensity": 0,
+        "target_language_guard": true,
+        "transformation": "none",
+        "lexical_expansion": false
+      },
+      "style_samples": ["Výsledek má působit jako pečlivě redigovaný současný odborný text."],
+      "lexicon": [],
+      "transformations": [],
+      "references": ["builtin"],
+      "provenance": "doctranslate built-in profile"
+    },
+    {
+      "id": "cs-expert",
+      "name": "Odborná čeština",
+      "language": "cs",
+      "description": "Přesná odborná čeština s konzistentní terminologií a zdrženlivým stylem.",
+      "version": "1.0",
+      "prompt": {
+        "must": ["Rozlišuj termíny, definice, hypotézy a příklady."],
+        "should": ["Používej ustálenou terminologii a jednoznačné věty."],
+        "avoid": ["Nevysvětluj navíc a nezjednodušuj odborný obsah bez pokynu."],
+        "forbidden": []
+      },
+      "policy": {
+        "register": "expert",
+        "period": "modern",
+        "expressivity": "restrained",
+        "vulgarity": "preserve-if-present",
+        "fidelity": "preserve-meaning-and-intensity",
+        "caricature_intensity": 0,
+        "target_language_guard": true,
+        "transformation": "register-shift",
+        "lexical_expansion": false
+      },
+      "style_samples": ["Výsledek má odpovídat kvalitní odborné publikaci, nikoli popularizačnímu článku."],
+      "lexicon": ["definice", "hypotéza", "důsledek"],
+      "transformations": ["sjednoť překlady opakovaných termínů"],
+      "references": ["builtin"],
+      "provenance": "doctranslate built-in profile"
+    },
+    {
+      "id": "cs-modern-literary",
+      "name": "Literární moderní čeština",
+      "language": "cs",
+      "description": "Moderní literární jazyk, který zachovává obraznost a rytmus zdroje.",
+      "version": "1.0",
+      "prompt": {
+        "must": ["Zachovej obraznost, rytmus a perspektivu vypravěče."],
+        "should": ["Vol přirozené literární prostředky, ne mechanický doslovný převod."],
+        "avoid": ["Nepřidávej vlastní metafory ani patos."],
+        "forbidden": []
+      },
+      "policy": {
+        "register": "literary",
+        "period": "modern",
+        "expressivity": "source",
+        "vulgarity": "preserve-if-present",
+        "fidelity": "preserve-meaning-and-intensity",
+        "caricature_intensity": 0,
+        "target_language_guard": true,
+        "transformation": "stylistic-rewrite",
+        "lexical_expansion": false
+      },
+      "style_samples": ["Výsledek má být čtivý a obrazný, ale nesmí zastřít význam originálu."],
+      "lexicon": [],
+      "transformations": ["přenes obrazná pojmenování idiomaticky"],
+      "references": ["builtin"],
+      "provenance": "doctranslate built-in profile"
+    },
+    {
+      "id": "cs-archaic",
+      "name": "Archaická čeština",
+      "language": "cs",
+      "description": "Záměrně starobylý, ale srozumitelný český jazyk inspirovaný historickou prózou.",
+      "version": "1.0",
+      "prompt": {
+        "must": ["Udržuj historizující slovosled a dobovou dikci bez změny významu."],
+        "should": ["Užívej střídmě zastaralejší tvary, které zůstávají srozumitelné."],
+        "avoid": ["Nevytvářej náhodné neexistující tvary ani parodický tón."],
+        "forbidden": []
+      },
+      "policy": {
+        "register": "historical",
+        "period": "archaic",
+        "expressivity": "source",
+        "vulgarity": "preserve-if-present",
+        "fidelity": "preserve-meaning-and-intensity",
+        "caricature_intensity": 1,
+        "target_language_guard": true,
+        "transformation": "register-shift",
+        "lexical_expansion": false
+      },
+      "style_samples": ["Výsledek má zníti starobyle, avšak nikoli nesrozumitelně."],
+      "lexicon": ["anžto", "však", "tudy"],
+      "transformations": ["nahraď vybrané moderní vazby historizujícími ekvivalenty"],
+      "references": ["builtin"],
+      "provenance": "doctranslate built-in profile"
+    },
+    {
+      "id": "cs-parodic-archaic-polacek",
+      "name": "Parodická archaická čeština",
+      "language": "cs",
+      "description": "Lehce karikované historizování v duchu české humoristické prózy, ne kopie konkrétního autora.",
+      "version": "1.0",
+      "prompt": {
+        "must": ["Zvýrazni komický odstup a zachovej srozumitelnost."],
+        "should": ["Používej mírně přehnanou úřední či starosvětskou dikci."],
+        "avoid": ["Nevydávej výsledek za autentický text Josefa Poláčka."],
+        "forbidden": []
+      },
+      "policy": {
+        "register": "humorous-historical",
+        "period": "archaic",
+        "expressivity": "comic",
+        "vulgarity": "preserve-if-present",
+        "fidelity": "preserve-meaning-and-intensity",
+        "caricature_intensity": 2,
+        "target_language_guard": true,
+        "transformation": "regional-caricature",
+        "lexical_expansion": false
+      },
+      "style_samples": ["Výsledek má být starosvětsky komický, nikoli pouze plný náhodných archaismů."],
+      "lexicon": ["račte", "milostivě", "nuže"],
+      "transformations": ["přidej mírný komický úřednický odstup"],
+      "references": ["builtin"],
+      "provenance": "doctranslate built-in profile; generic parody, not author imitation"
+    },
+    {
+      "id": "cs-colloquial",
+      "name": "Hovorová čeština",
+      "language": "cs",
+      "description": "Uvolněná běžná čeština bez silného regionálního nebo slangového zabarvení.",
+      "version": "1.0",
+      "prompt": {
+        "must": ["Zachovej význam a přirozenou mluvenost."],
+        "should": ["Používej běžné kratší vazby a přirozený slovosled."],
+        "avoid": ["Nepřecházej do dialektu, argotu ani vulgárnosti bez opory ve zdroji."],
+        "forbidden": []
+      },
+      "policy": {
+        "register": "colloquial",
+        "period": "modern",
+        "expressivity": "source",
+        "vulgarity": "preserve-if-present",
+        "fidelity": "preserve-meaning-and-intensity",
+        "caricature_intensity": 0,
+        "target_language_guard": true,
+        "transformation": "register-shift",
+        "lexical_expansion": false
+      },
+      "style_samples": ["Tohle je běžná mluva, ne literární ozdoba ani místní nářečí."],
+      "lexicon": ["tahle", "nějak", "prostě"],
+      "transformations": ["zkracuj těžkopádné knižní vazby"],
+      "references": ["builtin"],
+      "provenance": "doctranslate built-in profile"
+    },
+    {
+      "id": "cs-slang-argot",
+      "name": "Slang a argot",
+      "language": "cs",
+      "description": "Výrazně neformální mluva s omezeným, kontextově řízeným slangem a argotem.",
+      "version": "1.0",
+      "prompt": {
+        "must": ["Zachovej sociální vztahy a význam replik."],
+        "should": ["Používej slang jen tam, kde jej vyžaduje hlas mluvčího."],
+        "avoid": ["Nevkládej vulgarity nebo kriminální terminologii bez opory ve zdroji."],
+        "forbidden": []
+      },
+      "policy": {
+        "register": "slang",
+        "period": "modern",
+        "expressivity": "source",
+        "vulgarity": "preserve-if-present",
+        "fidelity": "preserve-meaning-and-intensity",
+        "caricature_intensity": 1,
+        "target_language_guard": true,
+        "transformation": "stylistic-rewrite",
+        "lexical_expansion": false
+      },
+      "style_samples": ["Výsledek má znít jako živá neformální řeč, ne jako seznam náhodných slangových slov."],
+      "lexicon": ["kšeft", "fízl", "průšvih"],
+      "transformations": ["slang omez na dialogy a sociálně odůvodněná místa"],
+      "references": ["builtin"],
+      "provenance": "doctranslate built-in profile"
+    },
+    {
+      "id": "cs-dialect-plzen",
+      "name": "Plzeňská karikatura",
+      "language": "cs",
+      "description": "Lehká, záměrně karikovaná plzeňská stylizace.",
+      "version": "1.0",
+      "prompt": {
+        "must": ["Zachovej srozumitelnou češtinu a označ nářeční prvky střídmě."],
+        "should": ["Používej několik rozpoznatelných plzeňských prvků, ne fonetický chaos."],
+        "avoid": ["Nevymýšlej polská slova ani obecnou směs všech českých nářečí."],
+        "forbidden": []
+      },
+      "policy": {
+        "register": "dialect",
+        "period": "modern",
+        "expressivity": "comic",
+        "vulgarity": "preserve-if-present",
+        "fidelity": "preserve-meaning-and-intensity",
+        "caricature_intensity": 2,
+        "target_language_guard": true,
+        "transformation": "regional-caricature",
+        "lexical_expansion": true
+      },
+      "style_samples": ["Copa se to tady děje, kampa bys s tím šel?"],
+      "lexicon": ["copa", "kampa"],
+      "transformations": ["nahraď vybrané otázkové tvary regionálními variantami"],
+      "references": ["builtin"],
+      "provenance": "doctranslate built-in profile; intentionally comic stylization"
+    },
+    {
+      "id": "cs-colloquial-prague",
+      "name": "Pražská karikatura",
+      "language": "cs",
+      "description": "Lehká stylizace pražské hovorové výslovnosti a slovní zásoby.",
+      "version": "1.0",
+      "prompt": {
+        "must": ["Zachovej srozumitelnost a nepřepisuj výslovnost mechanicky."],
+        "should": ["Používej omezené obecně pražské hovorové tvary."],
+        "avoid": ["Nevymýšlej polská slova ani všechny tvary bez ypsilon."],
+        "forbidden": []
+      },
+      "policy": {
+        "register": "dialect",
+        "period": "modern",
+        "expressivity": "comic",
+        "vulgarity": "preserve-if-present",
+        "fidelity": "preserve-meaning-and-intensity",
+        "caricature_intensity": 2,
+        "target_language_guard": true,
+        "transformation": "regional-caricature",
+        "lexical_expansion": false
+      },
+      "style_samples": ["To je fakt krásnej den, ale některý věci se musej říct rovnou."],
+      "lexicon": ["hele", "fakt", "jasně"],
+      "transformations": ["používej omezeně hovorové koncovky a slovosled"],
+      "references": ["builtin"],
+      "provenance": "doctranslate built-in profile; intentionally comic stylization"
+    },
+    {
+      "id": "cs-colloquial-ostrava",
+      "name": "Ostravská karikatura",
+      "language": "cs",
+      "description": "Zřetelná, ale čitelná karikatura ostravské hovorové stylizace.",
+      "version": "1.0",
+      "prompt": {
+        "must": ["Zachovej význam a nepřeháněj nářeční prvky v odborném textu."],
+        "should": ["Stylizuj hlavně dialogy a krátké neformální úseky."],
+        "avoid": ["Nevkládej vulgarity jen kvůli karikatuře a nevymýšlej polské věty."],
+        "forbidden": []
+      },
+      "policy": {
+        "register": "dialect",
+        "period": "modern",
+        "expressivity": "comic",
+        "vulgarity": "preserve-if-present",
+        "fidelity": "preserve-meaning-and-intensity",
+        "caricature_intensity": 2,
+        "target_language_guard": true,
+        "transformation": "regional-caricature",
+        "lexical_expansion": true
+      },
+      "style_samples": ["Tož tak, iděme na to, ale bez zbytečnych řeči."],
+      "lexicon": ["tož", "bo", "idě"],
+      "transformations": ["drž regionální slovník krátký a kontrolovaný"],
+      "references": ["builtin"],
+      "provenance": "doctranslate built-in profile; intentionally comic stylization"
+    },
+    {
+      "id": "cs-hantec",
+      "name": "Hantec",
+      "language": "cs",
+      "description": "Brněnská hovorová a slangová stylizace s omezeným slovníkem.",
+      "version": "1.0",
+      "prompt": {
+        "must": ["Zachovej srozumitelnost pro čtenáře mimo Brno."],
+        "should": ["Používej několik typických výrazů, nikoli souvislou změť slangu."],
+        "avoid": ["Nevymýšlej polská slova ani náhodné moravské nářečí."],
+        "forbidden": []
+      },
+      "policy": {
+        "register": "dialect-slang",
+        "period": "modern",
+        "expressivity": "comic",
+        "vulgarity": "preserve-if-present",
+        "fidelity": "preserve-meaning-and-intensity",
+        "caricature_intensity": 2,
+        "target_language_guard": true,
+        "transformation": "regional-caricature",
+        "lexical_expansion": true
+      },
+      "style_samples": ["To je štatl, kemo, žádná věda, dáme to v klidu."],
+      "lexicon": ["štatl", "kemo", "šalina"],
+      "transformations": ["omezeně používej brněnskou slovní zásobu v neformálních úsecích"],
+      "references": ["builtin"],
+      "provenance": "doctranslate built-in profile; intentionally comic stylization"
+    }
+  ]
+}

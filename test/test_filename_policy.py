@@ -54,6 +54,18 @@ class GeneratedFilenameTests(unittest.TestCase):
             legacy.write_text("legacy", encoding="utf-8")
             self.assertEqual(translate.generated_sidecar(target, ".html"), legacy)
 
+    def test_explicit_style_allows_same_language_conversion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.pdf"
+            target = Path(directory) / "target.pdf"
+            source.write_bytes(b"%PDF-1.7")
+            previous = translate.TARGET_VARIANT
+            try:
+                translate.TARGET_VARIANT = "cs-expert"
+                translate.configure(source, target, "cs", "cs")
+            finally:
+                translate.TARGET_VARIANT = previous
+
 
 if __name__ == "__main__":
     unittest.main()

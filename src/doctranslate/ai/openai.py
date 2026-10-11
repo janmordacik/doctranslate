@@ -15,13 +15,24 @@ class OpenAIBackend(HttpAiBackend):
     def __init__(self, model: str, *, base_url: str = "https://api.openai.com/v1", **kwargs):
         super().__init__(model, base_url=base_url, **kwargs)
 
-    def _call_text(self, text: str, source_language: str, target_language: str) -> str:
+    def _call_text(
+        self,
+        text: str,
+        source_language: str,
+        target_language: str,
+        *,
+        target_variant: str = "auto",
+    ) -> str:
+        prompt = self._build_prompt(text, source_language, target_language, target_variant)
+        return self._call_precomposed(prompt)
+
+    def _call_precomposed(self, prompt):
         value = self._post("/chat/completions", {
             "model": self.model,
             "temperature": 0.2,
             "messages": [
-                {"role": "system", "content": f"Translate from {source_language} to {target_language}. Return only translation."},
-                {"role": "user", "content": text},
+                {"role": "system", "content": prompt.system},
+                {"role": "user", "content": prompt.user},
             ],
         })
         if not isinstance(value, dict):

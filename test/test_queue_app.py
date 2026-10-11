@@ -18,9 +18,28 @@ from doctranslate.queue_app import (
     discover_ollama_models, discover_translation_html, make_job, process_status,
 )
 from doctranslate.queue_worker import Worker
+from doctranslate.queue_worker import JobOptions
 
 
 class QueueStoreTests(unittest.TestCase):
+    def test_worker_options_preserve_target_variant(self):
+        options = JobOptions.from_job({
+            "input": "in.pdf", "output": "out.pdf", "inlang": "en", "outlang": "cs",
+            "phase": "html", "target_variant": "cs-expert",
+        })
+        self.assertEqual(options.target_variant, "cs-expert")
+
+    def test_queue_validates_style_against_target_language(self):
+        valid = make_job("valid.pdf", outlang="cs", target_variant="cs-expert")
+        self.store.set_jobs([valid])
+        loaded = self.store.jobs()[0]
+        self.assertEqual(loaded["target_variant"], "cs-expert")
+        self.assertTrue(loaded["style_revision"])
+
+        invalid = make_job("invalid.pdf", outlang="de", target_variant="cs-expert")
+        with self.assertRaises(ValueError):
+            self.store.set_jobs([invalid])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.queue_path = Path(self.temp.name) / "queue.json"

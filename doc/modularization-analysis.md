@@ -805,3 +805,60 @@ Process index: provider configuration and smoke test = A16 sequence diagram abov
 - python -m pytest test -q: 126 passed.
 - python -m compileall -q src and git diff --check: passed.
 - python -m pytest -q from repository root is not the project command: it also collects unrelated nested doctranslate/ tests and fails on external package/cache setup. The scoped command is python -m pytest test -q.
+
+## A17 Stylové profily a benchmark – aktuální implementace
+
+Stylový katalog je provider-neutrální vstup do prompt composeru. Auto je implicitní a explicitní profil má validovanou politiku, ukázky, slovník a fingerprint. Queue job, worker, checkpoint, cache a XHTML metadata přenášejí target_variant a revizi. Benchmark používá stejný prompt boundary a ukládá text i měření.
+
+~~~mermaid
+classDiagram
+    class StyleLibrary {
+        +list(language)
+        +load(id)
+        +fingerprint(id)
+        +resolve_variant(value, language)
+    }
+    class JobSpec {
+        +target_variant
+        +style_revision
+        +prompt_revision
+    }
+    class QueueWorker {
+        +from_job(job)
+        +run_job(job)
+    }
+    class PromptBuilder {
+        +build(request)
+    }
+    class BenchmarkRunner {
+        +run(models, fixture, variant)
+    }
+    StyleLibrary --> JobSpec : validates
+    JobSpec --> QueueWorker : runtime contract
+    StyleLibrary --> PromptBuilder : trusted policy
+    BenchmarkRunner --> PromptBuilder : same policy boundary
+~~~
+
+~~~mermaid
+sequenceDiagram
+    actor User
+    participant GUI_or_CLI
+    participant StyleLibrary
+    participant Queue
+    participant Worker
+    participant Prompt
+    participant Provider
+    User->>GUI_or_CLI: choose variant or auto
+    GUI_or_CLI->>StyleLibrary: resolve and fingerprint
+    GUI_or_CLI->>Queue: publish job after OK/Update
+    Worker->>Queue: read target_variant
+    Worker->>Prompt: compose policy + document data
+    Prompt->>Provider: one provider request
+    Provider-->>Worker: translation
+    Worker->>Queue: checkpoint and state
+    alt PDF-only
+        Worker->>Worker: typeset existing HTML; no Provider call
+    end
+~~~
+
+Implementation is offline tested. The GUI target-language selector and manual GUI smoke remain open; live Ollama benchmark and visual PDF verification are deliberately user-run operations.

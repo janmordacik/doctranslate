@@ -17,3 +17,6 @@ translate = "doctranslate.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"doctranslate.ai.data" = ["*.json"]

@@ -450,3 +450,38 @@ obnovit až tehdy, když je potvrzeno, že původní proces nežije.
 8. Stiskněte **Aktualizovat úlohy**.
 9. Sledujte progress a stav workeru.
 10. Po dokončení vizuálně zkontrolujte HTML i výsledné PDF.
+
+## 15. Stylové profily a benchmark
+
+Ve formuláři Job lze při vytváření nebo kopírování jobu zvolit stylovou variantu. Auto zachovává styl originálu a je výchozí. Explicitní profily jsou určeny pro registr, odborný styl, literární češtinu, archaizaci, slang, argot a stylizované regionální varianty. Výběr stylu se uloží až tlačítkem OK a worker jej obdrží po stisku Aktualizovat úlohy.
+
+CLI aliasy jsou:
+
+    translate.cmd --style cs-modern-literary --infile source.pdf --outfile result.pdf
+    translate.cmd --target-variant cs-hantec --inlang en --outlang cs --infile source.pdf --outfile result.pdf
+
+Benchmark Ollamy:
+
+    translate.cmd --benchmark
+    translate.cmd --benchmark translategemma:4b translategemma:12b
+    translate.cmd --benchmark --style cs-modern-literary
+
+Benchmark používá vlastní vestavěné fixture, modely nestahuje a ukládá JSON report. Bez seznamu modelů se dotáže Ollamy na dostupné modely. Živý běh může trvat dlouho; offline testy Ollamu nepotřebují.
+
+## 16. Technický stav stylového workflow
+
+Stylový katalog je balíčkované JSON runtime data. Job, checkpoint, cache a HTML metadata nesou variantu a revizi profilu; změna explicitního profilu proto nepřevezme cizí překlad. Varianta auto zachovává kompatibilitu historické cache.
+
+Po změně stylového workflow ověřte:
+
+    C:\Python314\python.exe -m pytest test -q
+    C:\Python314\python.exe -m compileall -q src/doctranslate
+
+Oba příkazy jsou offline. Vizuální sazbu PDF a živý benchmark spouštějte samostatně až po kontrole vstupů, volné kapacity a dostupnosti Ollamy.
+
+### 16.1 Zdrojový a cílový jazyk
+
+V editaci Job vyberte zdrojový a cílový jazyk. Seznam stylů se filtruje podle
+cílového jazyka; auto zachová styl autora a explicitní profil aktivuje řízený
+převod registru nebo varianty. Změny se uloží až po stisknutí OK. Přímý převod
+v rámci stejného jazyka je povolen pouze s explicitním profilem.

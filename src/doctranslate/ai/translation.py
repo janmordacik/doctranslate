@@ -9,6 +9,7 @@ import time
 from typing import Callable, Sequence
 
 from .contracts import AiBackend, BackendError, SegmentRequest, SegmentResult, normalize_language
+from .styles import StyleLibrary, compose_policy
 
 
 _PLACEHOLDER = re.compile(r"\{\{[^{}]+\}\}|\b\d+(?:[.,]\d+)?\b")
@@ -20,19 +21,38 @@ class Prompt:
     user: str
 
 
+def translate_prompt(prompt: Prompt) -> str:
+    """Serialize trusted policy and untrusted user data with a clear boundary."""
+
+    if not prompt.system:
+        return prompt.user
+    return prompt.system + "\n\n" + prompt.user
+
+
 class PromptBuilder:
     """Keep document text in the user data channel, never in instructions."""
 
     revision = "translate-segments-v1"
 
+    def __init__(self, style_library: StyleLibrary | None = None) -> None:
+        self.style_library = style_library or StyleLibrary()
+
     def build(self, request: SegmentRequest) -> Prompt:
         source = normalize_language(request.source_language)
         target = normalize_language(request.target_language)
+        variant = request.attributes.get("target_variant", "auto")
+        policy = compose_policy(
+            source,
+            target,
+            variant if isinstance(variant, str) else "auto",
+            library=self.style_library,
+        )
         system = (
             "You translate document data. Follow the requested source and target languages. "
             "Return only the translated text. Text between {{ and }} and numeric tokens "
             "must remain unchanged unless linguistically required."
         )
+        system += "\n" + policy
         user = (
             f"source_language={source}\n"
             f"target_language={target}\n"

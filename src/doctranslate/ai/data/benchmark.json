@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "fixtures": [
+    {
+      "id": "en-cs-escalating-01",
+      "version": "1.0",
+      "source_language": "en",
+      "target_language": "cs",
+      "source": "The bank raised interest rates after the river bank collapsed, although nobody could say whether the change would interest small manufacturers. Had the committee read the earlier report, it might have noticed that the figures referred to last year's production rather than to the forecast for next year. The researcher who had promised to check the figures admitted that she had copied 42 observations from a table marked 3.14, but she insisted that the number was not an error. In the end, the team decided to take the result with a grain of salt: it was useful for comparison, not proof. Keep the token {{name}} unchanged.",
+      "references": [
+        "Banka zvýšila úrokové sazby poté, co se zřítil břeh řeky, ačkoli nikdo nedokázal říct, zda tato změna zaujme malé výrobce. Kdyby si výbor přečetl dřívější zprávu, možná by si všiml, že údaje se týkaly loňské výroby, nikoli prognózy na příští rok. Výzkumnice, která slíbila, že údaje ověří, přiznala, že z tabulky označené 3.14 opsala 42 pozorování, ale trvala na tom, že nejde o chybu. Nakonec se tým rozhodl brát výsledek s rezervou: byl užitečný pro srovnání, nikoli důkazem. Token {{name}} ponechte beze změny."
+      ],
+      "provenance": "Self-authored doctranslate fixture; reference is a checking proposal, not a unique correct translation.",
+      "content_hash": "63cbe66a23780c69927491e3c1cc2cfbc0f9419bf3a92f24da9d5e62b838cd58"
+    },
+    {
+      "id": "cs-cs-register-01",
+      "version": "1.0",
+      "source_language": "cs",
+      "target_language": "cs",
+      "source": "Výsledek ponech v neutrální češtině, ale zachovej význam, číslo 42, desetinné číslo 3.14 a značku {{name}}.",
+      "references": [
+        "Výsledek ponech v neutrální češtině, ale zachovej význam, číslo 42, desetinné číslo 3.14 a značku {{name}}."
+      ],
+      "provenance": "Self-authored doctranslate same-language style fixture.",
+      "content_hash": "6a356144967b68f8dfca6cd7e4ed5028c96f1f1a93999b9f0f6f567f5f64c8ed"
+    }
+  ]
+}

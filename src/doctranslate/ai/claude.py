@@ -25,13 +25,24 @@ class ClaudeBackend(HttpAiBackend):
             "anthropic-version": "2023-06-01",
         }
 
-    def _call_text(self, text: str, source_language: str, target_language: str) -> str:
+    def _call_text(
+        self,
+        text: str,
+        source_language: str,
+        target_language: str,
+        *,
+        target_variant: str = "auto",
+    ) -> str:
+        prompt = self._build_prompt(text, source_language, target_language, target_variant)
+        return self._call_precomposed(prompt)
+
+    def _call_precomposed(self, prompt):
         value = self._post("/v1/messages", {
             "model": self.model,
             "max_tokens": 4096,
             "temperature": 0.2,
-            "system": f"Translate from {source_language} to {target_language}. Return only translation.",
-            "messages": [{"role": "user", "content": text}],
+            "system": prompt.system,
+            "messages": [{"role": "user", "content": prompt.user}],
         })
         if not isinstance(value, dict) or not isinstance(value.get("content"), list):
             raise self._invalid()

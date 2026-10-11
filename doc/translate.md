@@ -127,6 +127,12 @@ classDiagram
     AdapterRegistry --> DocumentOutputAdapter
 ~~~
 
+V Job skupině GUI jsou při editaci dostupné také zdrojový a cílový jazyk.
+Výběr cílového jazyka omezuje seznam explicitních stylových profilů na profily
+pro daný jazyk; auto zůstává vždy dostupné. Volba se uloží spolu s jobem až
+po potvrzení OK. Při změně cílového jazyka se automaticky navrhne normalizovaný
+název výstupu podle zvoleného jazyka.
+
 Jádro src/doctranslate/translate_core/ neimportuje PyMuPDF. PDF závislost je v src/doctranslate/translate_core/pdf_adapter.py a ve stávající legacy orchestraci. Výstupní PDF adapter přijímá renderer přes dependency injection, takže lze přidat HTML, EPUB nebo DOCX bez změny překladového jádra.
 
 ## Architektura fronty
@@ -615,3 +621,60 @@ Statická diagnostika referenčního běhu zjistila 493 stran, přibližně 5 80
 ## Provozní poznámky nástrojů
 
 Kuchařku ověřených postupů a workaroundů vede [doc/tools.md](tools.md). Projektový [AGENTS.md](../AGENTS.md) vyžaduje načtení tohoto souboru na začátku každé práce.
+
+## Stylové varianty a benchmark
+
+Výchozí varianta je auto: překlad nemá vnucovat moderní spisovnou češtinu, ale zachovat registr, tón, expresivitu a případnou vulgaritu originálu. Explicitní variantu lze zvolit v Job skupině GUI nebo příkazem --style či --target-variant. Katalog je uložen v src/doctranslate/ai/data/styles.json a používá jej GUI, worker i providerové prompty.
+
+Benchmark se spouští bez dokumentového jobu:
+
+    translate.cmd --benchmark
+    translate.cmd --benchmark translategemma:4b translategemma:12b
+    translate.cmd --benchmark --style cs-modern-literary
+
+Bez seznamu modelů se použije Ollama discovery; modely se nestahují. Výsledek obsahuje překlady, první a warm časy, chyby a stav modelu v JSON reportu. Živý benchmark vyžaduje běžící Ollamu a uživatel jej spouští samostatně.
+
+~~~mermaid
+classDiagram
+    class StyleLibrary {
+        +list(language)
+        +load(id)
+        +fingerprint(id)
+        +resolve_variant(value, language)
+    }
+    class Job {
+        +target_variant
+        +style_revision
+    }
+    class PromptBuilder {
+        +build(request)
+    }
+    class BenchmarkRunner {
+        +run(models, fixture, variant)
+    }
+    StyleLibrary --> Job : validates and fingerprints
+    StyleLibrary --> PromptBuilder : trusted policy
+    PromptBuilder --> Job : translation request
+    BenchmarkRunner --> PromptBuilder : same policy boundary
+~~~
+
+~~~mermaid
+sequenceDiagram
+    actor User
+    participant GUI_or_CLI
+    participant StyleLibrary
+    participant Queue_or_Runner
+    participant Provider
+    User->>GUI_or_CLI: choose auto or explicit variant
+    GUI_or_CLI->>StyleLibrary: validate and fingerprint
+    alt document job
+        GUI_or_CLI->>Queue_or_Runner: publish target_variant
+        Queue_or_Runner->>Provider: policy + document data once
+    else benchmark
+        GUI_or_CLI->>Queue_or_Runner: fixture + models + variant
+        loop selected models
+            Queue_or_Runner->>Provider: measured request
+            Provider-->>Queue_or_Runner: text and timing
+        end
+    end
+~~~

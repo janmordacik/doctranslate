@@ -19,7 +19,27 @@ from .auth import (
     redact_secrets,
 )
 from .profiles import AiProfile, ProfileError, ProfileStore
-from .translation import Prompt, PromptBuilder, SegmentTranslationPipeline, translate_text
+from .styles import (
+    StyleError,
+    StyleLibrary,
+    StylePolicy,
+    StyleProfile,
+    StylePromptRules,
+    compose_policy,
+)
+from .benchmark_fixtures import (
+    BenchmarkFixture,
+    BenchmarkFixtureError,
+    load_builtin_fixtures,
+)
+from .benchmark import BenchmarkResult, BenchmarkRunner, BenchmarkSample
+from .translation import (
+    Prompt,
+    PromptBuilder,
+    SegmentTranslationPipeline,
+    translate_prompt,
+    translate_text,
+)
 from .registry import ProviderDescriptor, ProviderRegistry, build_default_provider_registry
 from .provider_runtime import (
     ChainedCredentialStore,
@@ -62,6 +82,18 @@ __all__ = [
     "OAuthAuth",
     "ProfileError",
     "ProfileStore",
+    "StyleError",
+    "StyleLibrary",
+    "StylePolicy",
+    "StyleProfile",
+    "StylePromptRules",
+    "compose_policy",
+    "BenchmarkFixture",
+    "BenchmarkFixtureError",
+    "load_builtin_fixtures",
+    "BenchmarkResult",
+    "BenchmarkRunner",
+    "BenchmarkSample",
     "SegmentRequest",
     "SegmentResult",
     "redact_secrets",
@@ -69,6 +101,7 @@ __all__ = [
     "PromptBuilder",
     "SegmentTranslationPipeline",
     "translate_text",
+    "translate_prompt",
     "ProviderDescriptor",
     "ProviderRegistry",
     "build_default_provider_registry",

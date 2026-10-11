@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .providers import HttpAiBackend
+from .translation import Prompt, translate_prompt
 
 
 _LANGUAGE_NAMES = {
@@ -81,16 +82,26 @@ class OllamaBackend(HttpAiBackend):
     def __init__(self, model: str, *, base_url: str = "http://localhost:11434", **kwargs):
         super().__init__(model, base_url=base_url, **kwargs)
 
-    def _call_text(self, text: str, source_language: str, target_language: str) -> str:
+    def _call_text(
+        self,
+        text: str,
+        source_language: str,
+        target_language: str,
+        *,
+        target_variant: str = "auto",
+    ) -> str:
+        prompt = self._build_prompt(text, source_language, target_language, target_variant)
         strategy = prompt_strategy_for_model(self.model)
+        data = prompt.user
         content = (
-            strategy.build(source_language, target_language, text)
+            strategy.build(source_language, target_language, data)
             if strategy is not None
             else (
                 f"Translate from {source_language} to {target_language}. "
-                "Return only the translation.\n\n" + text
+                "Return only the translation.\n\n" + data
             )
         )
+        content = prompt.system + "\n\n" + content
         payload = {
             "model": self.model,
             "stream": False,
@@ -106,6 +117,16 @@ class OllamaBackend(HttpAiBackend):
         if not isinstance(message, dict):
             raise self._invalid()
         return self._string(message.get("content"), "message.content")
+
+    def _call_precomposed(self, prompt: Prompt) -> str:
+        value = self._post(
+            "/api/chat",
+            {"model": self.model, "stream": False,
+             "messages": [{"role": "user", "content": translate_prompt(prompt)}]},
+        )
+        if not isinstance(value, dict) or not isinstance(value.get("message"), dict):
+            raise self._invalid()
+        return self._string(value["message"].get("content"), "message.content")
 
     @staticmethod
     def _invalid():

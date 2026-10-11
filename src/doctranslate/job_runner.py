@@ -10,6 +10,7 @@ import threading
 from typing import Callable
 
 from .ai.contracts import AiBackend, SegmentRequest
+from .ai.styles import StyleLibrary
 from .ai.translation import SegmentTranslationPipeline
 from .formats.registry import FormatRegistry
 from .translate_core.contracts import XhtmlDocument
@@ -30,6 +31,8 @@ class JobSpec:
     profile_id: str | None = None
     model: str = ""
     phase: str = "both"
+    target_variant: str = "auto"
+    style_revision: str | None = None
     prompt_revision: str = "translate-segments-v1"
     segment_policy: str = "block-v1"
 
@@ -61,9 +64,20 @@ class JobRunner:
         self.logger = logger or (lambda *_args, **_kwargs: None)
 
     @staticmethod
+    def _translation_metadata(spec: JobSpec) -> dict[str, str]:
+        """Return stable metadata that explains how translated XHTML was made."""
+        style_revision = spec.style_revision or StyleLibrary().fingerprint(spec.target_variant)
+        return {
+            "translation_target_variant": spec.target_variant,
+            "translation_style_revision": style_revision,
+            "translation_prompt_revision": spec.prompt_revision,
+        }
+
+    @staticmethod
     def identity(spec: JobSpec, document: XhtmlDocument | None = None) -> str:
         """Hash all inputs that make a checkpoint safe to reuse."""
         source_hash = document.metadata.source_sha256 if document else None
+        style_revision = spec.style_revision or StyleLibrary().fingerprint(spec.target_variant)
         payload = {
             "input": str(spec.input_path.resolve()),
             "output": str(spec.output_path.resolve()),
@@ -74,6 +88,8 @@ class JobRunner:
             "provider": spec.provider_id,
             "profile": spec.profile_id,
             "model": spec.model,
+            "target_variant": spec.target_variant,
+            "style_revision": style_revision,
             "prompt_revision": spec.prompt_revision,
             "segment_policy": spec.segment_policy,
             "source_sha256": source_hash,
@@ -133,6 +149,7 @@ class JobRunner:
                     block.text,
                     spec.source_language,
                     spec.target_language,
+                    attributes={"target_variant": spec.target_variant},
                 )
                 for block in document.blocks
                 if block.text.strip() and block.block_id not in completed
@@ -147,6 +164,16 @@ class JobRunner:
             ])
             completed.update(values)
             self._save_checkpoint(context.checkpoint_path, identity, completed)
+            document = replace(
+                document,
+                metadata=replace(
+                    document.metadata,
+                    extensions={
+                        **document.metadata.extensions,
+                        **self._translation_metadata(spec),
+                    },
+                ),
+            )
             self.logger("job.translation.checkpoint", job_id=spec.job_id, blocks=len(completed))
 
         if spec.phase in {"pdf", "both"}:

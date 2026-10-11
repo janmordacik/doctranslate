@@ -1,7 +1,10 @@
 # Styly a uživatelský benchmark – implementační plán
 
 Parent issue: [stylové profily a benchmark](../tasks/3-2026-10-11-stylove-profily-a-benchmark.md).
-Revize proti zdrojům: 2026-10-11. Stav: návrh, implementace B01–B08 nezahájena.
+Revize proti zdrojům: 2026-10-11. Stav: B01–B08 implementačně a dokumentačně
+dokončeny.
+Živý Ollama benchmark, GUI smoke a vizuální PDF kontrola zůstávají uživatelskými
+ověřeními mimo offline revizi.
 Tento plán nahrazuje starší mikroplán S01–S56 v parent issue.
 
 ## Pracovní režim a minimální kontext
@@ -42,6 +45,21 @@ do test/mock. Runtime fixture určené instalované aplikaci patří do balíčk
 | CLI | translate.cli_parser/entrypoint; queue_app.cli_main/make_job | --inlang/--outlang již existují; nepřidávat je znovu. Benchmark dispatch musí předcházet obnovení dokumentového jobu. |
 | GUI | QueueGui.add/copy_selected_job/select_job/commit_job_form/cancel_job_form | Varianty musí fungovat pro nový job, kopii, read-only detail a Cancel, ne pouze pro combobox. |
 | Providerové profily | ai.profiles.AiProfile/ProfileStore | Providerový profile je konfigurace credentials/modelu; styl má vlastní katalog a pole. |
+
+## Aktuální stav implementace
+
+| Krok | Stav | Ověření / mezera |
+|---|---|---|
+| B01 katalog | hotovo | 11 profilů, validace a balíčková data |
+| B02.1 prompt composer | hotovo | politika je oddělená od nedůvěryhodného textu |
+| B02.2 provider payloady | hotovo | Ollama/TranslateGemma/cloud payload testy |
+| B02.3 legacy batch bridge | hotovo | provider-neutral precomposed prompt se odešle jednou; payload test ověřuje absence dalšího wrapperu |
+| B03 job/cache/obnova | hotovo | JobSpec, worker, checkpoint, HTML metadata, explicitní cache revize a PDF-only/discovery validace |
+| B04 fixture | hotovo | vlastní en→cs a cs→cs fixture s hashem/reference |
+| B05 runner | hotovo | first/warm, wall time, error/skip/cancel |
+| B06 CLI/report | základ hotov | --benchmark a alias --style; tokenové statistiky závisí na backend callbacku |
+| B07 GUI | hotovo | combobox varianty, source/target language, Copy/Cancel, worker přenos a lokalizace |
+| B08 dokumentace/finále | hotovo | manuál, UML, textová validace a úspěšný wheel check; ruční smoke zůstává |
 
 Jde o statickou revizi, nikoli novou reprodukci nebo živý benchmark.
 
@@ -632,8 +650,9 @@ sequenceDiagram
     end
 ~~~
 
-Mermaid zde prošel pouze textovou kontrolou, nikoli renderem. Implementátor
-ověří render, pokud má dostupný nástroj; jinak to výslovně zaznamená.
+Mermaid zde prošel pouze textovou kontrolou (vyvážené bloky, classDiagram a
+sequenceDiagram), nikoli renderem. Implementátor ověří render, pokud má
+dostupný nástroj; jinak to výslovně zaznamená.
 
 ## Zbývající vstupy a navazující rozšíření
 

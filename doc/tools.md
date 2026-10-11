@@ -166,6 +166,31 @@ Stav: funkční workaround; druhý pokus je nutné kontrolovat, aby neobsahoval
 stejnou chybu v dokumentačním příkladu.
 Datum: 2026-10-11.
 
+## 2026-10-11: wheel check po instalaci setuptools
+
+### Ověření
+
+Po instalaci setuptools jsou v C:\Python314 dostupné Python, setuptools,
+pytest, PyMuPDF a keyring. Ollama je dostupná a příkaz ollama list vrací
+lokální modely TranslateGemma 4B/12B i další modely.
+
+Původní wheel check odhalil chybný zápis package-data v pyproject.toml:
+balíček doctranslate.ai.data musí být v TOML jako klíč v uvozovkách.
+Po opravě konfigurace proběhl:
+
+    C:\Python314\python.exe -m pip wheel . --no-deps --no-build-isolation --wheel-dir tmp/wheel-check
+
+Úspěšně vznikl wheel doctranslate-0.1.0-py3-none-any.whl a obsahuje
+doctranslate/ai/data/styles.json i benchmark.json. Offline regrese:
+156 passed, 4 subtests passed; compileall src/doctranslate prošel.
+
+### Recept před spuštěním
+
+Před delším během ověřit dostupnost Pythonu, PyMuPDF a případně keyringu,
+spustit explicitní testovací cestu python -m pytest test -q, zkontrolovat
+python -m compileall -q src/doctranslate a podle fáze ověřit Ollamu přes
+ollama list. Wheel check je samostatná kontrola instalovatelnosti.
+
 ## Poslední aktualizace
 
 - 2026-10-11: Při zpřesnění plánu pro Lunu znovu ověřen recept pro neplatný kontext patchů: část hledané věty byla uprostřed řádku. Celé skutečné řádky načtené ze souboru použity jako kontext cílených patchů; podřetězec nepovažovat za samostatný řádek.
@@ -181,3 +206,42 @@ Datum: 2026-10-11.
 
 - 2026-10-10: evidence převedena na kuchařku postupů; doplněn recept pro oprávnění, shell, Qwen, Git a REPL.
 - 2026-10-10: revize potvrdila opakované selhání exec_command/apply_patch nástrojů. Ověřeno spuštění samotného apply_patch s cwd projektu; opraven Qwen postup a PDF příkaz podle aktuálních jmen souborů. Shell regex probe selhal kvůli ztracenému escapování závorek; pro inventuru používej více jednoduchých `rg -e` patternů místo ručně escapované složené regex.
+## 2026-10-11: pytest nesmí sbírat cizí adresáře
+
+### Chyba
+
+Spuštění python -m pytest -q z kořene checkoutu omylem sbírá i paralelní
+adresář doctranslate/ a testy nainstalovaného stejnojmenného balíku. Výsledkem
+jsou chyby importů a pokus o zápis do C:\Users\mordacik\.cache\doctranslate,
+který je v sandboxu zakázaný. Nejde o chybu aktuálního projektu.
+
+### Ověřený workaround
+
+Testy tohoto projektu spouštět explicitní cestou:
+
+C:\Python314\python.exe -m pytest test -q
+
+Pro cílené testy používat stejné omezení na test/.... Po tomto oddělení byla
+celá relevantní sada ověřena jako 151 passed, 4 subtests passed.
+
+## 2026-10-11: apply-patch wrapper a dokumentační tabulky
+
+### Chyba
+
+Velký patch vložený do JavaScript template stringu skončil chybou wrapperu
+Invalid left-hand side expression in postfix operation; jiný pokus selhal na
+Failed to find expected lines nebo Invalid patch hunk, protože část kontextu
+nebyla označena jako kontextový řádek.
+
+### Ověřený workaround
+
+Patch předávaný přes Node sestavit z pole úplných řádků a spojit jej přes nový
+řádek. V apply-patch hunku musí každý řádek začínat +, - nebo mezerou; tabulkové
+řádky přidávané do souboru proto také musí mít prefix +. Po každém selhání
+znovu načíst aktuální kontext a ověřit git diff --check.
+
+### Ověření
+
+Tímto postupem byly zapsány změny implementačního plánu a tasku bez poškození
+zdrojů. Stav: funkční workaround.
+Datum: 2026-10-11.

@@ -25,12 +25,23 @@ class GeminiBackend(HttpAiBackend):
         else:
             headers["x-goog-api-key"] = token
         return headers
-    def _call_text(self, text: str, source_language: str, target_language: str) -> str:
+    def _call_text(
+        self,
+        text: str,
+        source_language: str,
+        target_language: str,
+        *,
+        target_variant: str = "auto",
+    ) -> str:
         if self.auth is None:
             raise RuntimeError("Gemini API requires an API-key credential reference")
+        prompt = self._build_prompt(text, source_language, target_language, target_variant)
+        return self._call_precomposed(prompt)
+
+    def _call_precomposed(self, prompt):
         value = self._post(
             "/models/" + self.model + ":generateContent",
-            {"contents": [{"parts": [{"text": f"Translate from {source_language} to {target_language}. Return only translation.\n{text}"}]}]},
+            {"contents": [{"parts": [{"text": prompt.system + "\n\n" + prompt.user}]}]},
             headers=self._auth_headers(),
         )
         if not isinstance(value, dict):

@@ -42,6 +42,7 @@ class JobOptions:
     output_format: str | None
     first_page: int
     last_page: int | None
+    target_variant: str = "auto"
 
     @classmethod
     def from_job(cls, job: dict) -> "JobOptions":
@@ -59,6 +60,7 @@ class JobOptions:
             output_format=job.get("output_format"),
             first_page=job.get("first_page", 1),
             last_page=job.get("last_page"),
+            target_variant=job.get("target_variant", "auto"),
         )
 
 
@@ -317,6 +319,7 @@ class Worker:
                 total=None,
                 unit="pages",
             )
+            translate.TARGET_VARIANT = options.target_variant or "auto"
             translate.configure(
                 options.input,
                 options.output,

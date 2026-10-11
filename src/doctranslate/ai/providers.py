@@ -9,6 +9,7 @@ from typing import Any, Mapping, Sequence
 from .auth import ApiKeyAuth, CredentialStore, MemoryCredentialStore
 from .contracts import AiBackend, BackendError, ProbeResult, SegmentRequest, SegmentResult
 from .transport import HttpResponse, UrllibTransport
+from .translation import Prompt, PromptBuilder, translate_prompt
 
 
 class HttpAiBackend(AiBackend):
@@ -25,6 +26,7 @@ class HttpAiBackend(AiBackend):
         transport: object | None = None,
         credential_store: CredentialStore | None = None,
         auth: ApiKeyAuth | None = None,
+        style_library: object | None = None,
         timeout: float = 120,
     ) -> None:
         self.model = model
@@ -32,11 +34,24 @@ class HttpAiBackend(AiBackend):
         self.transport = transport or UrllibTransport()
         self.credential_store = credential_store or MemoryCredentialStore()
         self.auth = auth
+        self.prompt_builder = PromptBuilder(style_library)
         self.timeout = timeout
 
-    def translate(self, text: str, source_language: str, target_language: str) -> str:
+    def translate(
+        self,
+        text: str,
+        source_language: str,
+        target_language: str,
+        *,
+        target_variant: str = "auto",
+    ) -> str:
         """Translate one text value and reject an empty provider response."""
-        result = self._call_text(text, source_language, target_language)
+        result = self._call_text(
+            text,
+            source_language,
+            target_language,
+            target_variant=target_variant,
+        )
         if not isinstance(result, str) or not result.strip():
             raise BackendError("empty_output", "Provider returned no translated text")
         return result
@@ -46,9 +61,50 @@ class HttpAiBackend(AiBackend):
         return tuple(
             SegmentResult(
                 request.segment_id,
-                self.translate(request.text, request.source_language, request.target_language),
+                self.translate(
+                    request.text,
+                    request.source_language,
+                    request.target_language,
+                    target_variant=(
+                        request.attributes.get("target_variant")
+                        if isinstance(request.attributes.get("target_variant"), str)
+                        else "auto"
+                    ),
+                ),
             )
             for request in requests
+        )
+
+    def translate_precomposed(self, prompt: Prompt) -> str:
+        """Send a trusted, already composed batch prompt exactly once.
+
+        The legacy JSON batch bridge owns its schema and therefore must not be
+        wrapped in another ordinary translation prompt.
+        """
+        result = self._call_precomposed(prompt)
+        if not isinstance(result, str) or not result.strip():
+            raise BackendError("empty_output", "Provider returned no translated text")
+        return result
+
+    def _build_prompt(
+        self,
+        text: str,
+        source_language: str,
+        target_language: str,
+        target_variant: str,
+    ):
+        """Build the common prompt while keeping provider payloads separate."""
+
+        from .contracts import SegmentRequest
+
+        return self.prompt_builder.build(
+            SegmentRequest(
+                "single",
+                text,
+                source_language,
+                target_language,
+                attributes={"target_variant": target_variant},
+            )
         )
 
 
@@ -89,7 +145,17 @@ class HttpAiBackend(AiBackend):
                 "Check endpoint, network access and provider configuration.",
             )
 
-    def _call_text(self, text: str, source_language: str, target_language: str) -> str:
+    def _call_text(
+        self,
+        text: str,
+        source_language: str,
+        target_language: str,
+        *,
+        target_variant: str = "auto",
+    ) -> str:
+        raise NotImplementedError
+
+    def _call_precomposed(self, prompt: Prompt) -> str:
         raise NotImplementedError
 
     def _headers(self) -> dict[str, str]:
