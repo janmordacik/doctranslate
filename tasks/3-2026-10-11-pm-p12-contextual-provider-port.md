@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p02-engine-kontrakt-a-registr.md, 3-2026-10-11-pm-p05-legacy-xhtml-bridge.md, 3-2026-10-11-pm-p11-bounded-memory-context.md
 group: translation/engine/backend
@@ -76,3 +76,10 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P12 implementován. Nový ai/context_backend.py definuje volitelný ContextualBackend, capability check, request/result kontrakt a strict ID/markup decoder. OllamaBackend přidává contextual_capability() a translate_batch(), který posílá source, instructions a bounded context jako oddělené payload části; TranslateGemma zachovává vlastní prompt strategy. Legacy AiBackend/translate_segments se nemění.
+
+2026-10-11: Validace: cílené testy 11 passed, 4 subtests passed; celá sada 211 passed, 4 subtests passed. git diff --check bez nálezu.
+
+2026-10-11: Omezení: capability je deklarovaná adaptérem a živý Ollama smoke nebyl spuštěn; skutečnou dostupnost konkrétního modelu musí ověřit provider probe/runtime.

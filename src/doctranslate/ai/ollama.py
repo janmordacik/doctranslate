@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 
+from .context_backend import (
+    ContextualCapability,
+    ContextualRequest,
+    ContextualResult,
+    decode_contextual_results,
+    require_contextual_capability,
+)
 from .providers import HttpAiBackend
 from .translation import Prompt, translate_prompt
 
@@ -118,6 +126,70 @@ class OllamaBackend(HttpAiBackend):
             raise self._invalid()
         return self._string(message.get("content"), "message.content")
 
+    def contextual_capability(self) -> ContextualCapability:
+        """Advertise the structured chat capability used by advanced mode."""
+        if not self.model.strip():
+            return ContextualCapability(False, "Ollama model ID is empty")
+        strategy = prompt_strategy_for_model(self.model)
+        revision = strategy.revision if strategy is not None else "ollama-contextual-v1"
+        return ContextualCapability(True, prompt_revision=revision)
+
+    def translate_batch(self, requests, envelope) -> tuple[ContextualResult, ...]:
+        """Send source and bounded memory as separate JSON fields."""
+        require_contextual_capability(self)
+        if not requests:
+            return ()
+        source = {
+            "language": envelope.source_language,
+            "segments": [
+                {
+                    "id": request.segment_id,
+                    "text": request.text,
+                    "markup": request.markup,
+                    "attributes": dict(request.attributes),
+                }
+                for request in requests
+            ],
+        }
+        context = envelope.to_mapping()["context"]
+        strategy = prompt_strategy_for_model(self.model)
+        instructions = envelope.instructions.strip()
+        if not instructions and strategy is not None:
+            instructions = strategy.build(
+                envelope.source_language, envelope.target_language, "", structured=True
+            ).strip()
+        if not instructions:
+            instructions = "Translate the source segments and return only the requested JSON structure."
+        payload = {
+            "model": self.model,
+            "stream": False,
+            "format": "json",
+            "messages": [
+                {"role": "system", "content": instructions},
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "source": source,
+                            "target_language": envelope.target_language,
+                            "context": context,
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+        }
+        value = self._post("/api/chat", payload)
+        if not isinstance(value, dict) or not isinstance(value.get("message"), dict):
+            raise self._invalid()
+        content = value["message"].get("content")
+        if not isinstance(content, str):
+            raise self._invalid()
+        try:
+            decoded = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise self._invalid() from exc
+        return decode_contextual_results(decoded, requests)
     def _call_precomposed(self, prompt: Prompt) -> str:
         value = self._post(
             "/api/chat",
