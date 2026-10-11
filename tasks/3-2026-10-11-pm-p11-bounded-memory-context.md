@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p09-semantic-batch-planner.md, 3-2026-10-11-pm-p10-json-glossary-store.md
 group: translation/engine/context
@@ -75,3 +75,10 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P11 implementován v translation/retrieval.py a translation/context.py. RAM index podporuje exact/alias/casefold/lexical lookup, language/sense/scope filtry, deterministické pořadí a bounded výsledky. ContextEnvelope odděluje instrukce, source a read-only glossary/occurrences; ContextBudget rezervuje instrukce/schema/output a source overflow odmítne bez zkrácení.
+
+2026-10-11: Validace: cílené testy 20 passed; celá sada 206 passed, 4 subtests passed. git diff --check bez nálezu.
+
+2026-10-11: Omezení: retrieval je záměrně lexikální a lineární nad RAM snapshotem; embeddingy, GraphRAG a celý chat history jsou mimo scope.
