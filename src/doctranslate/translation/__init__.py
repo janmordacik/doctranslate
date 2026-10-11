@@ -13,6 +13,16 @@ from .contracts import (
 )
 from .registry import TranslationEngineRegistry, TranslationRegistryError
 from .basic import BasicTranslationEngine, BatchExecutor
+from .checkpoint import (
+    CHECKPOINT_REVISION,
+    CHECKPOINT_SCHEMA,
+    CheckpointError,
+    CheckpointState,
+    CheckpointStore,
+    JsonCheckpointStore,
+    ValidatedSegment,
+    canonical_identity,
+)
 
 __all__ = [
     "EngineDescriptor",
@@ -28,4 +38,12 @@ __all__ = [
     "TranslatorSelection",
     "BasicTranslationEngine",
     "BatchExecutor",
+    "CHECKPOINT_REVISION",
+    "CHECKPOINT_SCHEMA",
+    "CheckpointError",
+    "CheckpointState",
+    "CheckpointStore",
+    "JsonCheckpointStore",
+    "ValidatedSegment",
+    "canonical_identity",
 ]

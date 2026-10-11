@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p02-engine-kontrakt-a-registr.md
 group: translation/engine/checkpoint
@@ -75,3 +75,6 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+2026-10-11: Implementován versioned JSON checkpoint v translation/checkpoint.py: kanonická identity, validated segments s text/markup/provenance/term bindings, memory revision, counters a dirty IDs. JsonCheckpointStore používá injektovatelný atomický writer; mismatch/invalid schema/storage error jsou typed a starý soubor se při selhání nepřepisuje.
+2026-10-11: Cílené testy: 7 passed; celá offline sada: 170 passed, 4 subtests passed. git diff --check bez chyb. Stávající JobRunner checkpoint nebyl migrován, což zůstává explicitně navazující integrační práce.
