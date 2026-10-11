@@ -2809,6 +2809,21 @@ def run_html_typesetting(cancel_event=None, save_mode=None, checkpoint_pages=Non
     print(f"Done: {OUTPUT_PDF}", flush=True)
 
 
+def pdf_output_metadata(path):
+    """Return best-effort metadata for the PDF artifact after a run."""
+    target = Path(path)
+    if not target.is_file():
+        return {"output_exists": False}
+    metadata = {"output_exists": True, "output_bytes": target.stat().st_size}
+    try:
+        with fitz.open(str(target)) as document:
+            metadata["output_pages"] = len(document)
+    except (OSError, RuntimeError, ValueError) as exc:
+        # A report must remain available even when the artifact is incomplete.
+        metadata["output_metadata_error"] = str(exc)[:128]
+    return metadata
+
+
 def main(cancel_event=None):
     # The output path is already configured here, so all subsequent phases
     # share one run log even when HTML and PDF are processed in one job.
@@ -2855,6 +2870,7 @@ def main(cancel_event=None):
             raise
         finally:
             if performance is not None:
+                performance.metadata.update(pdf_output_metadata(OUTPUT_PDF))
                 performance.write_json(generated_sidecar(OUTPUT_PDF, ".performance.json"))
                 performance.write_markdown(
                     generated_sidecar(OUTPUT_PDF, ".performance.md"),
