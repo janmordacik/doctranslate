@@ -114,6 +114,25 @@ translategemma:4b, každý s offline 16/16 a jedním živým požadavkem.
 - **Stav:** omezení oprávnění prostředí.
 - **Datum:** 2026-10-11.
 
+### Recept 13: Git commit – Windows Codex sandbox / ACL
+
+- **Příznak:** git add nebo git commit skončí chybou: Unable to create .git/index.lock: Permission denied.
+- **Ověřená příčina:** Codex sandbox může na adresář .git vytvořit explicitní Windows ACL DENY pro sandboxové identity. Zákazy mohou blokovat zápis i při zapnutém danger-full-access; opakované schvalování zvýšených oprávnění problém neřeší.
+- **Diagnostika:** nejprve zjisti skutečný adresář metadat příkazem git rev-parse --absolute-git-dir. Potom v běžném PowerShellu zkontroluj icacls "<cesta-k-.git>". Hledej explicitní neinherited DENY položky pro identity Codex sandboxu, zejména práva W, D, DC a GW.
+- **Bezpečnost:** ACL neměň automaticky. Nepoužívej icacls /reset /T ani rekurzivní převzetí vlastnictví .git. Pokud jsou zákazy přítomné, nejprve předej uživateli diagnózu a návrh cílené opravy.
+- **Ověřená oprava mimo Codex sandbox:** z kořene repozitáře nejprve zazálohuj ACL:
+
+  icacls .git /save "$env:TEMP\codex-git-acl.txt" /T
+
+  Následující oprava je přípustná pouze tehdy, pokud kontrola identity potvrdí stejný případ se šesti explicitními neinherited zákazy pro sandboxové identity:
+
+  $p='.git';$a=Get-Acl -LiteralPath $p;$r=@($a.Access|Where-Object {$_.AccessControlType -eq 'Deny' -and -not $_.IsInherited});if($r.Count -ne 6){throw "Expected 6 DENY, found $($r.Count)"};foreach($x in $r){[void]$a.RemoveAccessRuleSpecific($x)};Set-Acl -LiteralPath $p -AclObject $a -ErrorAction Stop
+
+- **Kontrola po opravě:** znovu ověř icacls .git, že všech šest zákazů zmizelo, zděděná Modify oprávnění zůstala a ostatní ACL nebyly změněny. Potom zopakuj git add a git commit. Úspěšnost commitu ani trvalost opravy nelze předem považovat za ověřenou.
+- **Prevence:** preferuj Workspace write; Full access používej jen při skutečné potřebě. Pokud se zákazy vrátí, upozorni na možné opětovné vytvoření ACL sandboxem.
+- **Stav:** diagnostika a odstranění šesti zákazů potvrzené v říjnu 2026; následný commit a trvalost opravy zatím nepotvrzené.
+- **Datum:** 2026-10-11.
+
 Použij tento formát:
 
 ```text
@@ -130,6 +149,7 @@ Datum: RRRR-MM-DD.
 - 2026-10-11: při validaci TranslateGemma 12B doplněn workaround pro import path izolované regression sady.
 - 2026-10-11: při živém smoke testu TranslateGemma ověřen endpoint 127.0.0.1:11434 a doplněn recept pro obsazený port/nevhodný localhost.
 - 2026-10-11: při uzavírání benchmarku selhal zápis Git indexu na .git/index.lock; doplněn recept 12.
+- 2026-10-11: doplněn recept 13 pro diagnostiku a cílenou opravu explicitních Windows ACL DENY vytvořených Codex sandboxem na .git; automatická změna ACL je zakázána.
 
 - 2026-10-10: evidence převedena na kuchařku postupů; doplněn recept pro oprávnění, shell, Qwen, Git a REPL.
 - 2026-10-10: revize potvrdila opakované selhání exec_command/apply_patch nástrojů. Ověřeno spuštění samotného apply_patch s cwd projektu; opraven Qwen postup a PDF příkaz podle aktuálních jmen souborů. Shell regex probe selhal kvůli ztracenému escapování závorek; pro inventuru používej více jednoduchých `rg -e` patternů místo ručně escapované složené regex.

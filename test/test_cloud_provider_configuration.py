@@ -66,12 +66,17 @@ class CloudConfigurationTests(unittest.TestCase):
             saved = save_profile_configuration(
                 self.profile(), profiles, store, model="gpt-new",
                 credential_ref="", api_key="secret", base_url="https://example.test/v1",
+                oauth_client_id="123456.apps.googleusercontent.com",
             )
             persisted = profiles.get("cloud")
         self.assertEqual(saved.credential_ref, "keyring:openai:cloud")
         self.assertEqual(store.get(saved.credential_ref), "secret")
         self.assertNotIn("secret", str(persisted.to_dict()))
         self.assertEqual(persisted.options["base_url"], "https://example.test/v1")
+        self.assertEqual(
+            persisted.options["oauth_client_id"],
+            "123456.apps.googleusercontent.com",
+        )
 
     def test_registry_publishes_cloud_capabilities(self):
 

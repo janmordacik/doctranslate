@@ -4,10 +4,16 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from doctranslate.ai import GeminiOAuth, MemoryCredentialStore
+from doctranslate.ai import (
+    GeminiOAuth,
+    MemoryCredentialStore,
+    OAuthConfigurationError,
+    resolve_gemini_oauth_client_id,
+)
 
 
 class OAuthTests(unittest.TestCase):
@@ -48,6 +54,33 @@ class OAuthTests(unittest.TestCase):
             oauth.token()
         with self.assertRaisesRegex(RuntimeError, "interactive"):
             oauth.login(False)
+
+    def test_missing_client_id_is_rejected_before_browser(self):
+        with patch.dict("os.environ", {}, clear=True):
+            oauth = GeminiOAuth(
+                credential_ref="gemini-oauth",
+                store=MemoryCredentialStore(),
+                browser_open=lambda _url: self.fail("browser must not open"),
+            )
+            with self.assertRaises(OAuthConfigurationError) as context:
+                oauth.login(True)
+        self.assertEqual(context.exception.code, "oauth_config_invalid")
+        self.assertIn("TRANSLATE_GEMINI_OAUTH_CLIENT_ID", context.exception.remedy)
+
+    def test_placeholder_client_id_is_rejected(self):
+        with self.assertRaises(OAuthConfigurationError):
+            resolve_gemini_oauth_client_id("doctranslate-desktop")
+
+    def test_valid_client_id_can_be_resolved_from_environment(self):
+        with patch.dict(
+            "os.environ",
+            {"TRANSLATE_GEMINI_OAUTH_CLIENT_ID": "123456.apps.googleusercontent.com"},
+            clear=True,
+        ):
+            self.assertEqual(
+                resolve_gemini_oauth_client_id(),
+                "123456.apps.googleusercontent.com",
+            )
 
 
 if __name__ == "__main__":

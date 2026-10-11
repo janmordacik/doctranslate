@@ -78,6 +78,7 @@ def build_default_provider_registry() -> ProviderRegistry:
             auth = OAuthTokenAuth(GeminiOAuth(
                 credential_ref=profile.credential_ref or "",
                 store=credentials,
+                client_id=profile.options.get("oauth_client_id"),
             ))
         else:
             auth = ApiKeyAuth(profile.credential_ref or "")

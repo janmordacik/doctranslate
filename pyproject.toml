@@ -9,6 +9,9 @@ description = "Format-independent document translation with PDF adapters"
 requires-python = ">=3.11"
 dependencies = ["pymupdf>=1.26.5"]
 
+[project.optional-dependencies]
+secure = ["keyring>=25.0"]
+
 [project.scripts]
 translate = "doctranslate.__main__:main"
 

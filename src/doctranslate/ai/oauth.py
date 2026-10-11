@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import hashlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+import os
 import secrets
 import threading
 import time
@@ -15,6 +16,40 @@ import webbrowser
 from urllib import parse as urllib_parse, request as urllib_request
 
 from .auth import CredentialStore, OAuthAuth
+
+
+class OAuthConfigurationError(RuntimeError):
+    """OAuth configuration is missing or cannot be used safely."""
+
+    code = "oauth_config_invalid"
+
+    def __init__(self, message: str, *, remedy: str) -> None:
+        super().__init__(message)
+        self.remedy = remedy
+
+
+GEMINI_OAUTH_CLIENT_ID_ENV = "TRANSLATE_GEMINI_OAUTH_CLIENT_ID"
+GEMINI_OAUTH_CLIENT_ID_REMEDY = (
+    "Create or select a Google OAuth desktop client, then set its client ID "
+    "in Gemini Configuration or in TRANSLATE_GEMINI_OAUTH_CLIENT_ID. "
+    "The client ID normally ends with .apps.googleusercontent.com."
+)
+
+
+def resolve_gemini_oauth_client_id(client_id: str | None = None) -> str:
+    """Resolve and validate a real Google OAuth client ID before browser use."""
+    value = (client_id or os.environ.get(GEMINI_OAUTH_CLIENT_ID_ENV, "")).strip()
+    if not value:
+        raise OAuthConfigurationError(
+            "Gemini OAuth client ID is not configured.",
+            remedy=GEMINI_OAUTH_CLIENT_ID_REMEDY,
+        )
+    if not value.endswith(".apps.googleusercontent.com"):
+        raise OAuthConfigurationError(
+            "Gemini OAuth client ID has an invalid format.",
+            remedy=GEMINI_OAUTH_CLIENT_ID_REMEDY,
+        )
+    return value
 
 
 @dataclass(frozen=True)
@@ -186,7 +221,7 @@ class GeminiOAuth(BrowserOAuth):
 
     def __init__(self, *, credential_ref: str, store: CredentialStore, token_exchange=None, **kwargs):
         super().__init__(
-            client_id=kwargs.pop("client_id", "doctranslate-desktop"),
+            client_id=kwargs.pop("client_id", os.environ.get(GEMINI_OAUTH_CLIENT_ID_ENV, "")),
             authorize_url=kwargs.pop("authorize_url", "https://accounts.google.com/o/oauth2/v2/auth"),
             token_url=kwargs.pop("token_url", "https://oauth2.googleapis.com/token"),
             scopes=kwargs.pop("scopes", ("https://www.googleapis.com/auth/generative-language",)),
@@ -195,3 +230,8 @@ class GeminiOAuth(BrowserOAuth):
             token_exchange=token_exchange,
             **kwargs,
         )
+
+    def login(self, interactive: bool = True) -> None:
+        if interactive:
+            self.client_id = resolve_gemini_oauth_client_id(self.client_id)
+        super().login(interactive)

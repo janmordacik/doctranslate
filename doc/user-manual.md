@@ -428,6 +428,11 @@ obnovit až tehdy, když je potvrzeno, že původní proces nežije.
 - Produkčně je ověřena především cesta PDF -> HTML -> PDF.
 - Přímé cloudové AI providery a jejich autentizace jsou připravené jako
   architektonický směr, ale nejsou náhradou za lokální Ollamu ve všech tocích.
+- Pro Gemini Login musí být kromě keyringu nastaven skutečný Google OAuth
+  client ID. Zadejte ho v Gemini Configuration do pole OAuth client ID nebo
+  nastavte TRANSLATE_GEMINI_OAUTH_CLIENT_ID. Výchozí placeholder se nepoužívá;
+  při chybějící konfiguraci aplikace zobrazí návod ještě před otevřením
+  prohlížeče.
 - Vizuální kontrola výsledného PDF je stále samostatný krok uživatele.
 - Sazba rozsáhlého PDF může trvat dlouho; průběh sledujte ve stavové liště,
   `worker-state.json` a logu.

@@ -29,10 +29,17 @@ def open_provider_dialog(
     credential_store=None,
     on_saved: Callable[[AiProfile], None] | None = None,
     on_probe: Callable[[object], None] | None = None,
+    on_error: Callable[[str, Exception], None] | None = None,
     translate: Callable[[str], str] | None = None,
 ) -> None:
     """Open a provider-specific Tk dialog."""
-    from doctranslate.ai import MemoryCredentialStore, credential_store_for, probe_profile, save_profile_configuration
+    from doctranslate.ai import (
+        CredentialStoreUnavailable,
+        MemoryCredentialStore,
+        credential_store_for,
+        probe_profile,
+        save_profile_configuration,
+    )
     credential_store = credential_store or credential_store_for(profile)
     import tkinter as tk
     t = translate or (lambda key: key)
@@ -42,12 +49,14 @@ def open_provider_dialog(
     window.title(f"{profile.provider_id} – configuration")
     window.transient(parent)
     fields = {}
-    values = (
+    values = [
         ("Model", profile.model, False),
         ("Endpoint", str(profile.options.get("base_url", "")), False),
         ("Credential reference", profile.credential_ref or "", False),
         ("API key (stored securely)", "", True),
-    )
+    ]
+    if profile.provider_id == "gemini":
+        values.append(("OAuth client ID", str(profile.options.get("oauth_client_id", "")), False))
     for row, (label, value, secret) in enumerate(values):
         tk.Label(window, text=label).grid(row=row, column=0, sticky="w", padx=8, pady=4)
         variable = tk.StringVar(value=value)
@@ -63,6 +72,8 @@ def open_provider_dialog(
         endpoint = fields["Endpoint"].get().strip()
         if endpoint:
             options["base_url"] = endpoint
+        if "OAuth client ID" in fields:
+            options["oauth_client_id"] = fields["OAuth client ID"].get().strip()
         return replace(profile, model=fields["Model"].get().strip(),
                        auth_type="none" if profile.provider_id == "ollama" else "api_key",
                        credential_ref=reference, options=options)
@@ -91,9 +102,15 @@ def open_provider_dialog(
                 credential_ref=fields["Credential reference"].get(),
                 api_key=fields["API key (stored securely)"].get(),
                 base_url=fields["Endpoint"].get(),
+                oauth_client_id=fields.get("OAuth client ID", "").get() if "OAuth client ID" in fields else None,
             )
         except Exception as exc:
-            messagebox.showerror(t("configure"), f"{type(exc).__name__}: {exc}")
+            if on_error:
+                on_error("provider.configuration.failed", exc)
+            detail = f"{type(exc).__name__}: {exc}"
+            if isinstance(exc, CredentialStoreUnavailable):
+                detail += "\n\n" + exc.remedy
+            messagebox.showerror(t("configure"), detail)
             return
         if on_saved:
             on_saved(updated)

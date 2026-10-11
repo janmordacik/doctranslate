@@ -7,6 +7,16 @@ import os
 from typing import Protocol
 
 
+class CredentialStoreUnavailable(RuntimeError):
+    """Secure credential storage cannot be used on this workstation."""
+
+    code = "credentials_unavailable"
+
+    def __init__(self, message: str, *, remedy: str) -> None:
+        super().__init__(message)
+        self.remedy = remedy
+
+
 class CredentialStore(Protocol):
     """Secret storage boundary; implementations must never expose secrets in logs."""
 
@@ -50,32 +60,58 @@ class EnvCredentialStore:
         return os.environ.get(reference[4:])
 
     def set(self, reference: str, secret: str) -> None:
-        raise RuntimeError("Environment credential references are read-only")
+        raise CredentialStoreUnavailable(
+            "Environment credential references are read-only.",
+            remedy="Set the referenced environment variable or clear the reference and install keyring.",
+        )
 
     def delete(self, reference: str) -> None:
-        raise RuntimeError("Environment credential references are read-only")
+        raise CredentialStoreUnavailable(
+            "Environment credential references are read-only.",
+            remedy="Change the credential reference instead of deleting an environment variable.",
+        )
 
 
 class KeyringCredentialStore:
     """Use the optional OS keyring package; never fall back to plaintext files."""
 
+    INSTALL_REMEDY = (
+        "Install the optional dependency with "
+        "'python -m pip install keyring', then retry. "
+        "Alternatively configure a read-only env:VARIABLE credential reference."
+    )
+
     def __init__(self, service: str = "doctranslate") -> None:
         try:
             import keyring
         except ImportError as exc:
-            raise RuntimeError(
-                "Secure credential storage requires the optional keyring dependency"
+            raise CredentialStoreUnavailable(
+                "Secure credential storage is unavailable because the optional "
+                "'keyring' package is not installed.",
+                remedy=self.INSTALL_REMEDY,
             ) from exc
         self._keyring = keyring
         self.service = service
 
     def get(self, reference: str) -> str | None:
-        return self._keyring.get_password(self.service, reference)
+        try:
+            return self._keyring.get_password(self.service, reference)
+        except Exception as exc:
+            raise CredentialStoreUnavailable(
+                "The configured keyring backend cannot read secure credentials.",
+                remedy=self.INSTALL_REMEDY,
+            ) from exc
 
     def set(self, reference: str, secret: str) -> None:
         if not reference or not secret:
             raise ValueError("credential reference and secret are required")
-        self._keyring.set_password(self.service, reference, secret)
+        try:
+            self._keyring.set_password(self.service, reference, secret)
+        except Exception as exc:
+            raise CredentialStoreUnavailable(
+                "The configured keyring backend cannot store secure credentials.",
+                remedy=self.INSTALL_REMEDY,
+            ) from exc
 
     def delete(self, reference: str) -> None:
         try:

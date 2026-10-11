@@ -2,17 +2,28 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
-from typing import Callable
+from dataclasses import dataclass, replace
 
-from .auth import CredentialStore, EnvCredentialStore, KeyringCredentialStore
+from .auth import (
+    CredentialStore,
+    CredentialStoreUnavailable,
+    EnvCredentialStore,
+    KeyringCredentialStore,
+)
 from .contracts import ProbeResult
 from .profiles import AiProfile, ProfileStore
 from .registry import ProviderRegistry, build_default_provider_registry
 
 
-class CredentialStoreUnavailable(RuntimeError):
-    """No secure writable credential store is available on this workstation."""
+@dataclass(frozen=True)
+class CredentialStorageStatus:
+    """Safe diagnostic result for GUI and CLI credential-store checks."""
+
+    available: bool
+    writable: bool
+    backend: str
+    message: str
+    remedy: str
 
 
 class ChainedCredentialStore:
@@ -32,13 +43,17 @@ class ChainedCredentialStore:
     def set(self, reference: str, secret: str) -> None:
         if self.primary is None:
             raise CredentialStoreUnavailable(
-                "Secure credential storage is unavailable; use an explicit env: reference."
+                "Secure credential storage is unavailable.",
+                remedy=KeyringCredentialStore.INSTALL_REMEDY,
             )
         self.primary.set(reference, secret)
 
     def delete(self, reference: str) -> None:
         if reference.startswith("env:"):
-            raise CredentialStoreUnavailable("Environment credentials are read-only.")
+            raise CredentialStoreUnavailable(
+                "Environment credentials are read-only.",
+                remedy="Use the environment variable configured by the credential reference.",
+            )
         if self.primary is not None:
             self.primary.delete(reference)
 
@@ -49,8 +64,30 @@ def credential_store_for(profile: AiProfile | None = None) -> CredentialStore:
         return EnvCredentialStore()
     try:
         return ChainedCredentialStore(KeyringCredentialStore())
-    except RuntimeError:
+    except CredentialStoreUnavailable:
         return ChainedCredentialStore()
+
+
+def credential_storage_status() -> CredentialStorageStatus:
+    """Check secure storage without opening a browser or contacting a provider."""
+    try:
+        store = KeyringCredentialStore()
+    except CredentialStoreUnavailable as exc:
+        return CredentialStorageStatus(
+            available=False,
+            writable=False,
+            backend="unavailable",
+            message=str(exc),
+            remedy=exc.remedy,
+        )
+    backend = type(getattr(store, "_keyring", object())).__name__
+    return CredentialStorageStatus(
+        available=True,
+        writable=True,
+        backend=f"keyring:{backend}",
+        message="Secure credential storage is available.",
+        remedy="",
+    )
 
 
 def save_profile_configuration(
@@ -62,6 +99,7 @@ def save_profile_configuration(
     credential_ref: str | None,
     api_key: str | None = None,
     base_url: str | None = None,
+    oauth_client_id: str | None = None,
 ) -> AiProfile:
     """Persist a new non-secret profile revision and optionally store an API key."""
     model = model.strip()
@@ -76,6 +114,8 @@ def save_profile_configuration(
     options = dict(profile.options)
     if base_url is not None:
         options["base_url"] = base_url.strip()
+    if oauth_client_id is not None:
+        options["oauth_client_id"] = oauth_client_id.strip()
     updated = replace(
         profile,
         revision=profile.revision + 1,

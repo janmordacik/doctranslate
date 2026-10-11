@@ -1611,6 +1611,12 @@ class QueueGui:
             profile,
             store,
             on_saved=lambda updated: self._apply_profile_update(updated),
+            on_error=lambda action, exc: self._log_action(
+                action,
+                provider=profile.provider_id,
+                profile=profile.profile_id,
+                code=getattr(exc, "code", type(exc).__name__),
+            ),
             translate=self._t,
         )
 
@@ -1629,13 +1635,39 @@ class QueueGui:
         provider = self.provider_var.get().strip()
         if not self._provider_options()["supports_login"]:
             return
-        from .ai import AiProfile, GeminiOAuth, KeyringCredentialStore
+        from .ai import (
+            AiProfile,
+            CredentialStoreUnavailable,
+            GeminiOAuth,
+            OAuthConfigurationError,
+            credential_storage_status,
+            credential_store_for,
+            resolve_gemini_oauth_client_id,
+        )
         profile, store = self._ensure_profile(provider)
         try:
+            storage = credential_storage_status()
+            if not storage.writable:
+                self._log_action(
+                    "provider.credentials.unavailable",
+                    provider=provider,
+                    profile=profile.profile_id,
+                    backend=storage.backend,
+                    code="credentials_unavailable",
+                )
+                self.messagebox.showerror(
+                    self._t("login"),
+                    storage.message + "\n\n" + storage.remedy,
+                )
+                return
             oauth_ref = f"oauth:{provider}:{profile.profile_id}"
+            client_id = resolve_gemini_oauth_client_id(
+                profile.options.get("oauth_client_id")
+            )
             oauth = GeminiOAuth(
                 credential_ref=oauth_ref,
-                store=KeyringCredentialStore(),
+                store=credential_store_for(),
+                client_id=client_id,
             )
             oauth.login(True)
             updated = AiProfile(
@@ -1645,7 +1677,35 @@ class QueueGui:
             store.save(updated)
             self._apply_profile_update(updated)
             self.messagebox.showinfo(self._t("login"), self._t("login_completed"))
+        except CredentialStoreUnavailable as exc:
+            self._log_action(
+                "provider.login.failed",
+                provider=provider,
+                profile=profile.profile_id,
+                code=exc.code,
+            )
+            self.messagebox.showerror(
+                self._t("login"),
+                str(exc) + "\n\n" + exc.remedy,
+            )
+        except OAuthConfigurationError as exc:
+            self._log_action(
+                "provider.login.failed",
+                provider=provider,
+                profile=profile.profile_id,
+                code=exc.code,
+            )
+            self.messagebox.showerror(
+                self._t("login"),
+                str(exc) + "\n\n" + exc.remedy,
+            )
         except Exception as exc:
+            self._log_action(
+                "provider.login.failed",
+                provider=provider,
+                profile=profile.profile_id,
+                code=type(exc).__name__,
+            )
             self.messagebox.showerror(self._t("login"), str(exc))
 
     def selected_job(self) -> dict[str, Any] | None:

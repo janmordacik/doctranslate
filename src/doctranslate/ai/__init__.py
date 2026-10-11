@@ -10,6 +10,7 @@ from .contracts import (
 from .auth import (
     ApiKeyAuth,
     CredentialStore,
+    CredentialStoreUnavailable,
     EnvCredentialStore,
     MemoryCredentialStore,
     OAuthTokenAuth,
@@ -22,20 +23,29 @@ from .translation import Prompt, PromptBuilder, SegmentTranslationPipeline, tran
 from .registry import ProviderDescriptor, ProviderRegistry, build_default_provider_registry
 from .provider_runtime import (
     ChainedCredentialStore,
-    CredentialStoreUnavailable,
+    CredentialStorageStatus,
     credential_store_for,
+    credential_storage_status,
     discover_profile_models,
     probe_profile,
     provider_backend,
     save_profile_configuration,
 )
-from .oauth import BrowserOAuth, GeminiOAuth, OAuthTokens
+from .oauth import (
+    BrowserOAuth,
+    GeminiOAuth,
+    OAuthConfigurationError,
+    OAuthTokens,
+    resolve_gemini_oauth_client_id,
+)
 
 __all__ = [
     "ProbeResult",
     "ChainedCredentialStore",
     "CredentialStoreUnavailable",
+    "CredentialStorageStatus",
     "credential_store_for",
+    "credential_storage_status",
     "discover_profile_models",
     "probe_profile",
     "provider_backend",
@@ -64,5 +74,7 @@ __all__ = [
     "build_default_provider_registry",
     "BrowserOAuth",
     "GeminiOAuth",
+    "OAuthConfigurationError",
     "OAuthTokens",
+    "resolve_gemini_oauth_client_id",
 ]

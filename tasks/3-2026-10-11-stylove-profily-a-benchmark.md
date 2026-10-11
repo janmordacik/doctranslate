@@ -354,6 +354,104 @@ sequenceDiagram
 8. Doplnit jeden živý smoke test s lokální Ollamou.
 9. Aktualizovat doc/translate.md a architekturu pouze podle skutečně změněných kontraktů.
 
+## Implementační plán
+
+### Fáze 0 – průzkum a kontrakty
+
+- Zmapovat současné CLI argumenty, datový model jobu, prompt builder, Ollama
+  backend, GUI comboboxy a benchmark/reporting kód.
+- Ověřit existující kontrakty pro target_language, target_variant, metadata
+  jobu a provider options; zachovat zpětnou kompatibilitu starších jobů.
+- Rozhodnout formát vestavěné knihovny profilů podle skutečných závislostí.
+  Preferovaný je verzovaný JSON/YAML registry načtený do jednoho validovaného
+  interního modelu; při zbytečné závislosti použít JSON.
+- Výstupem je návrh kontraktu a seznam dotčených souborů.
+
+### Fáze 1 – model profilu a knihovna
+
+- Implementovat StyleProfile, promptová pravidla, politiku fidelity/vulgarity,
+  ukázky, lexikon, transformační pravidla a validaci.
+- Implementovat StyleLibrary.list/load/validate_all s deterministickou
+  registrací a srozumitelnými chybami.
+- Přidat všech jedenáct počátečních profilů. Dialektové profily musí být
+  explicitně karikaturní a obsahovat lexikon, pravidla a negativní příklady
+  proti polské kontaminaci.
+- Zachovat auto jako zvláštní výchozí režim bez předdefinovaného stylu.
+
+### Fáze 2 – prompt a překladové jádro
+
+- Rozšířit překladový kontrakt o style_id/target_variant bez zásahu do
+  PDF/XHTML adapterů.
+- Implementovat PromptComposer, který oddělí důvěryhodná pravidla profilu od
+  zdrojového textu a zachová placeholdery, markup, čísla a strukturu.
+- Zajistit, že auto zachová registr originálu a explicitní profil mění styl
+  pouze v mezích své politiky.
+- Pro převod ve stejném jazyce vyžadovat explicitní variantu odlišnou od auto.
+
+### Fáze 3 – fixture a hodnocení
+
+- Zavést vlastní, právně bezpečné fixture s metadaty a případně více
+  referenčními překlady.
+- Oddělit hodnocení významu, úplnosti, gramatiky, terminologie, registru,
+  struktury a nepřidaného obsahu; nezačínat přesnou shodou jako jedinou
+  metrikou.
+- Přidat dialektové pozitivní/negativní fixture a varování při podezření na
+  polské tvary bez automatického přepisování výstupu.
+
+### Fáze 4 – benchmark a reporty
+
+- Implementovat autodetekci modelů přes Ollama, kompatibilitní filtr a stav
+  SKIP s důvodem pro embedding/vision/nepoužitelné modely.
+- Podporovat explicitní seznam modelů i režim všech modelů z ollama list.
+- Měřit cold start, warm p50/p95, celkový čas, tokeny, tokeny/s a parametry;
+  modely spouštět sekvenčně.
+- Přidat konzolový řádek MODEL | STYLE | STATUS | COLD | WARM_P50 | TOKENS/S,
+  průběžný výpis překladu, JSONL event log a JSON/Markdown report.
+- Credentials a obsah vstupních dokumentů do logu neukládat; benchmark nesmí
+  automaticky stahovat modely.
+
+### Fáze 5 – CLI/GUI napojení
+
+- CLI: --style, --target-variant, --benchmark, volitelný seznam modelů,
+  --inlang a --outlang; zachovat kompatibilní aliasy.
+- GUI: stabilní položka Auto – zachovat styl originálu, oddělené cílový jazyk
+  a varianta a zobrazení konfigurace v detailu jobu.
+- Worker pouze předává hodnoty do jádra; interpretace stylu patří knihovně a
+  prompt composeru.
+
+### Fáze 6 – validace a dokumentace
+
+- Po každé fázi spustit cílené testy a po dokončení celou offline sadu.
+- Přidat živý smoke test s lokální Ollamou jako volitelný test mimo offline CI.
+- Aktualizovat doc/translate.md, uživatelský manuál a high-level UML:
+  classDiagram pro komponenty a sequenceDiagram pro překlad, benchmark, SKIP,
+  chybu a režim auto.
+- Teprve po splnění acceptance kritérií změnit stav tasku na test; po
+  nezávislé kontrole a commitu přesunout task do tasks/done.
+
+### Akceptační kontrolní body
+
+1. Registry a všech jedenáct profilů se načtou bez Ollamy.
+2. Prompt testy prokáží izolaci profilu od vstupu a zachování
+   placeholderů/markupu/čísel.
+3. CLI a GUI používají shodný seznam profilů a shodné chování auto.
+4. Benchmark zvládne explicitní seznam i autodetekci, kompatibilitní filtr,
+   SKIP, metriky a report bez pádu na jednom chybném modelu.
+5. Offline testy pokryjí neplatná data, konfliktní politiky, stejný jazyk bez
+   varianty, dialektovou kontrolu a prompt injection.
+6. Živý smoke test ověří alespoň jeden dostupný model a neblokuje offline
+   validaci při nedostupné Ollamě.
+
+### Rizika a rozhodovací body
+
+- Nejasný formát registry vyřešit ve fázi 0 podle skutečných závislostí.
+- Automatické kvalitativní skóre může být nespolehlivé; první verze má
+  poskytovat transparentní dimenze a referenční data, nikoli jedinou známku.
+- Benchmark všech modelů může trvat dlouho; běh musí být přerušitelný a
+  průběžně zapisovat výsledky.
+- Dialektové profily jsou stylizace, nikoli lingvistická autorita; dokumentace
+  musí tuto hranici uvádět.
+
 ## Acceptance
 
 - Všech jedenáct počátečních profilů se načte, validuje a zobrazí v seznamu.
@@ -389,3 +487,4 @@ sequenceDiagram
 2026-10-11: Upřesněno napojení do GUI/CLI. Výchozí režim je auto bez předdefinovaného stylu: zachovává styl autora včetně vulgarit, ale nepřidává vulgarity do neutrálního nebo odborného textu. Explicitní profily jsou volitelné.
 2026-10-11: Upřesněno, že regionální profily mají být záměrně karikaturní. Doplněn požadavek na profilové slovníky, transformační pravidla a kontrolu češtiny proti polské kontaminaci, protože znalost modelu nemusí být spolehlivá.
 2026-10-11: Jazyk a dialekt/registr jsou odděleny jako target_language a target_variant. Stejný mechanismus tak podporuje překlad do varianty i převod mezi variantami bez zvláštního jazyka.
+2026-10-11: Zapsán implementační plán ve fázích 0–6. Task zůstává ve stavu created; implementace ani živý benchmark nebyly zahájeny. Po každé fázi se počítá s cílenou validací, na konci s offline sadou a volitelným Ollama smoke testem.

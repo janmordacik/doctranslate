@@ -3,7 +3,9 @@ from pathlib import Path
 import os
 import sys
 import tempfile
+import types
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -12,10 +14,14 @@ from doctranslate.ai import (
     ApiKeyAuth,
     EnvCredentialStore,
     MemoryCredentialStore,
+    CredentialStoreUnavailable,
+    KeyringCredentialStore,
     ProfileError,
     ProfileStore,
+    credential_storage_status,
     redact_secrets,
 )
+from doctranslate.ai.provider_runtime import ChainedCredentialStore
 from doctranslate.config import save_config
 
 
@@ -81,6 +87,48 @@ class AiProfileTests(unittest.TestCase):
 
     def test_diagnostics_can_redact_secret(self):
         self.assertEqual(redact_secrets({"token": "abc"}, ("abc",)), {"token": "***"})
+
+    def test_missing_keyring_has_actionable_diagnostic_without_secret(self):
+        with patch.dict("sys.modules", {"keyring": None}):
+            status = credential_storage_status()
+            self.assertFalse(status.available)
+            self.assertFalse(status.writable)
+            self.assertEqual(status.backend, "unavailable")
+            self.assertIn("pip install keyring", status.remedy)
+            self.assertNotIn("secret", status.message.lower())
+
+    def test_missing_keyring_store_raises_typed_error_with_remedy(self):
+        with patch.dict("sys.modules", {"keyring": None}):
+            with self.assertRaises(CredentialStoreUnavailable) as context:
+                KeyringCredentialStore()
+        self.assertEqual(context.exception.code, "credentials_unavailable")
+        self.assertIn("pip install keyring", context.exception.remedy)
+
+    def test_environment_reference_remains_read_only_without_keyring(self):
+        store = ChainedCredentialStore()
+        with patch.dict("os.environ", {"DOCTRANSLATE_TEST_KEY": "env-secret"}):
+            self.assertEqual(store.get("env:DOCTRANSLATE_TEST_KEY"), "env-secret")
+        with self.assertRaises(CredentialStoreUnavailable):
+            store.set("keyring:openai:profile", "secret")
+        with self.assertRaises(CredentialStoreUnavailable):
+            EnvCredentialStore().set("env:DOCTRANSLATE_TEST_KEY", "secret")
+
+    def test_available_keyring_can_store_and_read_without_cloud(self):
+        values = {}
+        fake_keyring = types.SimpleNamespace(
+            set_password=lambda service, reference, secret: values.__setitem__((service, reference), secret),
+            get_password=lambda service, reference: values.get((service, reference)),
+            delete_password=lambda service, reference: values.pop((service, reference), None),
+        )
+        with patch.dict("sys.modules", {"keyring": fake_keyring}):
+            store = KeyringCredentialStore()
+            store.set("openai:profile", "secret")
+            self.assertEqual(store.get("openai:profile"), "secret")
+            status = credential_storage_status()
+        self.assertTrue(status.available)
+        self.assertTrue(status.writable)
+        self.assertTrue(status.backend.startswith("keyring:"))
+        self.assertNotIn("secret", status.message)
 
 
 if __name__ == "__main__":
