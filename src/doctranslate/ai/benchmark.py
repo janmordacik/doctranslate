@@ -116,19 +116,24 @@ class EngineBenchmarkRunner:
                     result = runner(fixture)
                     wall_ms = (self.clock() - started) * 1000
                     text, token_count, repairs, quality, metadata = self._extract(result)
+                    result_status = getattr(result, "status", "done")
+                    status = "ok" if result_status in {"done", None} else "unresolved"
                     samples.append(
                         EngineBenchmarkSample(
                             engine_id,
                             fixture.id,
                             fixture.content_hash,
                             run_index,
-                            "ok",
+                            status,
                             text=text,
                             wall_ms=wall_ms,
                             token_count=token_count,
                             repair_count=repairs,
                             quality=quality,
                             metadata=metadata,
+                            error_code=None if status == "ok" else str(
+                                getattr(result, "reason", result_status)
+                            ),
                         )
                     )
                 except Exception as exc:
@@ -154,8 +159,18 @@ class EngineBenchmarkRunner:
         text = "\n\n".join(
             str(getattr(block, "text", "")) for block in blocks
         ) if blocks else str(getattr(result, "text", ""))
-        metrics = getattr(result, "metrics", None)
         metadata: dict[str, Any] = {}
+        session_status = getattr(result, "status", None)
+        if session_status is not None:
+            metadata = {
+                "session_status": session_status,
+                "turns": getattr(result, "turns", None),
+                "tool_calls": getattr(result, "tool_calls", None),
+                "revisions": getattr(result, "revisions", None),
+                "reason": getattr(result, "reason", ""),
+            }
+            text = str(getattr(result, "translated_text", text))
+        metrics = getattr(result, "metrics", None)
         token_count = None
         repairs = None
         if metrics is not None:
@@ -180,7 +195,10 @@ class EngineBenchmarkRunner:
                 token_count = prompt_tokens + output_tokens
             repairs = getattr(metrics, "revisions", None)
         warnings = tuple(getattr(result, "warnings", ()) or ())
-        quality = "warnings" if warnings else ("ok" if text.strip() else "unknown")
+        if session_status is not None and session_status != "done":
+            quality = "unresolved"
+        else:
+            quality = "warnings" if warnings else ("ok" if text.strip() else "unknown")
         metadata["warnings"] = list(warnings)
         return text, token_count, repairs, quality, metadata
 

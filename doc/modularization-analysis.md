@@ -1612,3 +1612,8 @@ sequenceDiagram
     Runner->>Report: fixture hash, time, tokens, repairs, quality
     Report-->>Tester: offline comparison data
 ~~~
+
+
+P18 doplňuje T07 o extended variantu: tool calls, revisions, unresolved a
+stalled jsou měřené stavy. Bez capability evidence se extended nepovažuje za
+dostupný; fake výsledek není live jazykové hodnocení.

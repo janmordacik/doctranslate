@@ -684,3 +684,12 @@ sequenceDiagram
         end
     end
 ~~~
+
+
+### Extended benchmark a capability evidence
+
+P18 rozšiřuje offline srovnání o bounded agentní relaci. Výsledek může být
+unresolved a report nese důvod, počet turnů, tool calls, revisions a overhead.
+Opakovaný nezměněný tool result se ukončí jako stalled; fake test proto nesmí
+být interpretován jako důkaz jazykové kvality. Živý tool smoke se provádí jen
+pro explicitně ověřený model a jeho capability se nezapíná podle názvu modelu.

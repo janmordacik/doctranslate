@@ -1,7 +1,23 @@
 import json
+import tempfile
 import threading
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
+
+from doctranslate.ai.context_backend import (
+    AgentCapability,
+    AgentToolCall,
+    AgentTurnResponse,
+)
+from doctranslate.translation.context import ContextEnvelope
+from doctranslate.translation.memory import JsonGlossaryStore
+from doctranslate.translation.session import (
+    AgentSegmentRequest,
+    AgentSessionBudget,
+    BoundedAgentSession,
+)
+from doctranslate.translation.tools import MemoryTools
 
 from doctranslate.ai.benchmark import EngineBenchmarkRunner
 from doctranslate.ai.benchmark_fixtures import load_builtin_fixtures
@@ -180,6 +196,66 @@ class TranslationEngineIntegrationTests(unittest.TestCase):
         self.assertEqual(sample.repair_count, 1)
         self.assertEqual(sample.quality, "warnings")
         self.assertEqual(sample.metadata["prompt_tokens"], 10)
+
+    def test_extended_benchmark_reports_tool_overhead_and_unresolved(self):
+        class ExtendedBackend:
+            def __init__(self):
+                self.responses = [
+                    AgentTurnResponse(
+                        "tool",
+                        tool_call=AgentToolCall(
+                            "call-1", "search_memory", {"query": "absent"}
+                        ),
+                    ),
+                    AgentTurnResponse(
+                        "tool",
+                        tool_call=AgentToolCall(
+                            "call-2", "search_memory", {"query": "absent"}
+                        ),
+                    ),
+                ]
+
+            def agent_capability(self):
+                return AgentCapability(True)
+
+            def request_turn(self, request):
+                return self.responses.pop(0)
+
+        with tempfile.TemporaryDirectory() as folder:
+            tools = MemoryTools(JsonGlossaryStore(Path(folder) / "memory.json"))
+            session = BoundedAgentSession(
+                ExtendedBackend(),
+                tools,
+                budget=AgentSessionBudget(max_turns=4, max_tool_calls=4),
+                tool_schemas={"search_memory": {"type": "object"}},
+            )
+            request = AgentSegmentRequest(
+                "fixture-extended",
+                self.fixture.source,
+                self.fixture.source_language,
+                self.fixture.target_language,
+                ContextEnvelope(
+                    self.fixture.source,
+                    self.fixture.source_language,
+                    self.fixture.target_language,
+                    "Preserve meaning.",
+                ),
+            )
+            comparison = EngineBenchmarkRunner(
+                {
+                    "standard": lambda fixture: "standard:" + fixture.source,
+                    "extended": lambda fixture: session.run(request),
+                }
+            ).run(self.fixture)
+        extended = comparison.samples[1]
+        self.assertEqual(extended.status, "unresolved")
+        self.assertEqual(extended.quality, "unresolved")
+        self.assertEqual(extended.error_code, "stalled")
+        self.assertEqual(extended.metadata["tool_calls"], 2)
+        self.assertEqual(
+            {sample.fixture_hash for sample in comparison.samples},
+            {self.fixture.content_hash},
+        )
 
     def test_engine_benchmark_records_failures_without_stopping_other_engine(self):
         result = EngineBenchmarkRunner(

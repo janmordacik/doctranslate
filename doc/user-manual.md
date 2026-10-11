@@ -511,3 +511,12 @@ Offline výsledek nad fake backendem slouží pouze ke kontrole kontraktu a rež
 Nezaměňujte jej za jazykové hodnocení nebo živý výkon Ollamy. Pro skutečné
 srovnání je nutné samostatně spustit živý běh s konkrétním modelem a výsledek
 ručně zkontrolovat.
+
+
+## 18. Extended benchmark a nedostupná capability
+
+Extended režim je experimentální. Pokud provider/model nemá explicitně ověřenou
+agentní capability, zůstává nedostupný a basic/standardní advanced režim se tím
+nemění. Offline benchmark může vykázat unresolved nebo stalled výsledek; to je
+kontrolní stav rozpočtu a recovery, nikoli úspěšný překlad. Live smoke a ruční
+kontrola se zapisují odděleně s konkrétním modelem, digestem a kontextem.

@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p16-bounded-agent-session.md, 3-2026-10-11-pm-p17-standard-acceptance-benchmark.md
 group: quality/translation-engine/extended
@@ -68,12 +68,29 @@ ověření mimo offline testy uvést jako samostatný krok, nikoli tvrdit hotov�
 
 ## Restart a comments
 
-S01: created
-S02: created
-S03: created
-Actual time: unavailable
-Actual logical lines: unavailable
-Actual tokens: unavailable
+S01: done
+S02: done
+S03: done
+Actual time: not measured; completed in one bounded implementation pass
+Actual logical lines: approximately 160 including benchmark, integration tests and documentation
+Actual tokens: not measured
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P18 implementován jako rozšíření EngineBenchmarkRunner a offline
+integračního fixture testu. Report nyní odlišuje ok, error a unresolved a u
+bounded session uvádí turns, tool_calls, revisions, reason, quality a čas.
+Opakovaný nezměněný dotaz končí stalled.
+
+2026-10-11: Ověření capability proti živému modelu nebylo spuštěno; flag
+agent_tools_enabled proto zůstává explicitní konfigurací bez tvrzení o dostupnosti.
+Žádný fake výsledek nebyl vydáván za EN→CS quality score. Dokumentace doplněna.
+
+2026-10-11: Validace: cílené testy 15 passed; celá sada 246 passed, 4 subtests
+passed; compileall src/doctranslate prošel; git diff --check bez nálezu.
+
+2026-10-11: Omezení pro další task: živý tool smoke a měření konkrétního modelu
+zůstávají samostatným provozním během; P18 nemění výchozí basic ani standardní
+advanced režim.
