@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p02-engine-kontrakt-a-registr.md, 3-2026-10-11-pm-p03-basic-engine.md, 3-2026-10-11-pm-p04-engine-checkpoint.md
 group: translation/engine/integration
@@ -76,3 +76,6 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+2026-10-11: Přidán integration/translation_bridge.py a LegacyBatchAdapter. Bridge převádí legacy page groups na canonical XhtmlDocument a zpět, zachovává ID/pořadí/markup/bbox/rotaci/styly/row layout/resources a odmítá mapping mismatch. Worker ani PDF sazba nebyly přepnuty.
+2026-10-11: Cílené testy: 13 passed; celá offline sada: 174 passed, 4 subtests passed. git diff --check bez chyb. Explicitní překlad aktualizuje i textovou reprezentaci; žádné otevřené problémy v rozsahu tasku.
