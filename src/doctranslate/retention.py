@@ -285,5 +285,5 @@ def cleanup_queue_workdirs(
                     continue
     return [
         cleanup_workdir(location, queue_path, policy=policy, dry_run=dry_run)
-        for location in sorted(locations, key=str.casefold)
+        for location in sorted(locations, key=lambda value: str(value).casefold())
     ]

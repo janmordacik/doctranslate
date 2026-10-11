@@ -87,6 +87,9 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(runtime_events[0]["runtime_context"], 8192)
         self.assertEqual(runtime_events[0]["model_size"], 3_300_000_000)
         self.assertEqual(runtime_events[0]["runtime_size_vram"], 3_200_000_000)
+        response_events = [fields for event, fields in events if event == "worker.translation.ollama.request_completed"]
+        self.assertEqual(response_events[0]["content_preview"], "Ahoj")
+        self.assertEqual(response_events[0]["content_chars"], 4)
         chat = next(call for call in transport.calls if call[1].endswith("/api/chat"))
         self.assertNotIn("num_ctx", chat[2]["payload"]["options"])
 

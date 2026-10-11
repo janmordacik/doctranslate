@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+from time import perf_counter
 from typing import Mapping
 
 from .context_backend import (
@@ -67,10 +68,14 @@ class OllamaPromptStrategy:
         )
         if structured:
             prompt += (
-                "Return only one JSON object with exactly the same document block and fragment IDs. "
-                "Translate only the natural-language string values; do not add explanations, Markdown or HTML. "
-                "Keep numeric tokens, placeholders, identifiers and the JSON structure unchanged. "
-                f"Please translate the following {source_name} document data into {target_name}:\n\n"
+                "Return only one JSON object with a top-level segments array. Each array item must contain "
+                "exactly the input id and its translated text; include every input segment exactly once. "
+                "Do not return the source, target_language, context or any other wrapper fields. "
+                "Translate every text value; do not copy an untranslated source segment. "
+                "Do not add explanations, Markdown or HTML. Keep numeric tokens, placeholders and identifiers "
+                "inside each segment unchanged. The required shape is "
+                '{"segments":[{"id":"input-id","text":"translated text","markup":""}]}. '
+                f"Translate the following {source_name} segments into {target_name}:\n\n"
             )
         else:
             prompt += (
@@ -154,10 +159,53 @@ class OllamaBackend(HttpAiBackend):
         if self.ollama_runtime is not None and not self.ollama_runtime.running:
             self.ollama_runtime.start()
         self._log_runtime_info("before_request")
+        started = perf_counter()
         try:
-            return super()._post(suffix, payload, headers)
+            value = super()._post(suffix, payload, headers)
+            self._log_response(
+                "worker.translation.ollama.request_completed",
+                suffix,
+                value,
+                duration_ms=round((perf_counter() - started) * 1000, 1),
+            )
+            return value
+        except Exception as exc:
+            self._log_event(
+                "worker.translation.ollama.request_failed",
+                endpoint=suffix,
+                duration_ms=round((perf_counter() - started) * 1000, 1),
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+            raise
         finally:
             self._log_runtime_info("after_request")
+
+    def _log_event(self, event: str, **fields) -> None:
+        """Write provider diagnostics when the worker supplied an event logger."""
+        if self.runtime_logger is not None:
+            self.runtime_logger(event, model=self.model, **fields)
+
+    def _log_response(self, event: str, endpoint: str, value: object, **fields) -> None:
+        """Record response shape and a bounded content preview for parse failures."""
+        message = value.get("message") if isinstance(value, dict) else None
+        content = message.get("content") if isinstance(message, dict) else None
+        try:
+            response_bytes = len(json.dumps(value, ensure_ascii=False).encode("utf-8"))
+        except (TypeError, ValueError):
+            response_bytes = None
+        self._log_event(
+            event,
+            endpoint=endpoint,
+            response_type=type(value).__name__,
+            response_keys=sorted(value) if isinstance(value, dict) else None,
+            message_keys=sorted(message) if isinstance(message, dict) else None,
+            content_type=type(content).__name__ if content is not None else None,
+            content_chars=len(content) if isinstance(content, str) else None,
+            content_preview=content[:2000] if isinstance(content, str) else None,
+            response_bytes=response_bytes,
+            **fields,
+        )
 
     def _log_runtime_info(self, phase: str) -> None:
         """Log model metadata and the actual runner context without reading model files."""
@@ -378,8 +426,27 @@ class OllamaBackend(HttpAiBackend):
         try:
             decoded = json.loads(content)
         except json.JSONDecodeError as exc:
+            self._log_event(
+                "worker.translation.ollama.response_parse_failed",
+                endpoint="/api/chat",
+                error_type=type(exc).__name__,
+                error=str(exc),
+                content_preview=content[:2000],
+            )
             raise self._invalid() from exc
-        return decode_contextual_results(decoded, requests)
+        try:
+            return decode_contextual_results(decoded, requests)
+        except BackendError as exc:
+            self._log_event(
+                "worker.translation.ollama.response_validation_failed",
+                endpoint="/api/chat",
+                error_type=type(exc).__name__,
+                error=str(exc),
+                decoded_type=type(decoded).__name__,
+                decoded_keys=sorted(decoded) if isinstance(decoded, dict) else None,
+                content_preview=content[:2000],
+            )
+            raise
     def _call_precomposed(self, prompt: Prompt) -> str:
         value = self._post(
             "/api/chat",

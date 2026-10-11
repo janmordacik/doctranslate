@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 type: test
 group: testing/integration/advanced-ollama/pdf
@@ -67,3 +67,10 @@ comments:
 - 2026-10-11: Task založen na požadavku ověřit advanced PDF překlad iterativně
   až do úspěchu a rozšířit logy pro následnou opravu. Implementace zatím
   nezačala; commit obsahuje pouze zadání tasku.
+- 2026-10-11: Implementován samostatný `test/live_advanced_pdf.py` a odděleně
+  commitnut test `612982c`. Test čistí pouze vlastní XHTML/PDF a sidecary,
+  používá izolovanou frontu, kontroluje Ollama API/model/disk a ukládá report.
+- 2026-10-11: Live běh s `advanced`, `ollama`, `translategemma:4b`, `phase=both`
+  dokončen jako `done`; vytvořeno HTML i čitelné třístránkové PDF. Opravy
+  nalezené během běhu jsou v navazujícím tasku
+  `1-2026-10-11-advanced-live-worker-import-path.md`.

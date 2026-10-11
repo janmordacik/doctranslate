@@ -186,7 +186,7 @@ class ProductionTranslationRuntime:
                 warnings=result.warnings,
             )
             if self.translate.PHASE == "both":
-                self.translate.set_activity("typesetting", phase="pdf", unit="pages")
+                self.worker.set_activity("typesetting", phase="pdf", unit="pages")
                 self.translate.run_html_typesetting(context.cancel_event)
         finally:
             self.close()

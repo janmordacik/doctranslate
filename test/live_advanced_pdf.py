@@ -177,8 +177,19 @@ def wait_for_job(
             while controller.running() and time.monotonic() - started < timeout_seconds:
                 time.sleep(0.5)
             return job
+        elapsed = time.monotonic() - started
+        if not controller.running() and elapsed >= 10:
+            worker_log = controller.queue.path.with_name("worker.log")
+            try:
+                details = worker_log.read_text(encoding="utf-8", errors="replace")[-4000:]
+            except OSError as exc:
+                details = f"Cannot read worker log: {exc}"
+            raise LiveTestError(
+                f"Worker stopped before job reached a terminal state ({state}); "
+                f"worker.log tail:\n{details}"
+            )
         write_record(log_path, "test.poll", job_id=job_id, state=state)
-        time.sleep(2)
+        time.sleep(1 if elapsed < 10 else 2)
     controller.stop()
     raise LiveTestError(f"Live job did not finish within {timeout_seconds} seconds")
 

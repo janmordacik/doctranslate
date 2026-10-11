@@ -834,6 +834,8 @@ class QueueStoreTests(unittest.TestCase):
             self.assertTrue(controller.start())
         command = popen.call_args.args[0]
         self.assertEqual(command[1:3], ["-m", "doctranslate.queue_worker"])
+        project_src = str(Path(__file__).resolve().parents[1] / "src")
+        self.assertIn(project_src, popen.call_args.kwargs["env"]["PYTHONPATH"].split(";"))
 
     def test_start_does_not_send_unsent_gui_draft(self):
         calls = []

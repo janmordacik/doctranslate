@@ -48,6 +48,23 @@ Výstupy živého testu: live/live-en.pdf, live/live-cs.pdf a live/budget.json.
 Při chybě zůstává diagnostika live/live-cs.ollama-error.json. Test kontroluje strukturu
 a vznik PDF; správnost a přirozenost českého překladu posuďte v PDF nebo ve výpisu.
 
+## Live advanced test s workerem a TranslateGemma
+
+Pro ověření produkční fronty, advanced modulu a sazby PDF spusťte z kořene projektu:
+
+    python test/live_advanced_pdf.py --input test/mock/sample-en.pdf
+
+Výchozí konfigurace používá `advanced`, `ollama`, `translategemma:4b`, `phase=both`
+a již běžící endpoint `http://127.0.0.1:11434`; před spuštěním ověří model přes
+`/api/tags`. Test používá vlastní `tmp/advanced-live` a `queue.json`, před každým
+pokusem odstraní pouze vlastní HTML/PDF a známé sidecary, nikoli vstupní PDF ani
+uživatelskou frontu. Výsledky jsou v `result.json`, `test.log`, `queue.events.log`,
+`worker.log` a run logu vedle výstupního PDF. Pro worker-owned Ollamu použijte
+`--managed-ollama` a nastavte `OLLAMA_MODELS` na skutečný modelový store.
+
+Test je opt-in a není součástí běžného pytest běhu. Při chybě nejprve zkontrolujte
+`result.json` a relevantní eventy; opravy kódu se provádějí až po jejich analýze.
+
 V test/mock jsou připravené sample-en.pdf a sample-cs-reference.pdf pro rychlé
 vizuální srovnání a sample-cs-reference.html jako ukázka čitelného HTML s obrázkem.
 Česká reference vznikla z pevně zadaného překladu, bez modelu.

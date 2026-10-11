@@ -920,7 +920,10 @@ class WorkerController:
         command = [sys.executable, "-m", "doctranslate.queue_worker", "--queue", str(self.queue.path)]
         log_path = self.queue.path.with_name("worker.log")
         environment = os.environ.copy()
-        source_path = str(Path(__file__).resolve().parents[2])
+        # The worker is started as ``python -m doctranslate.queue_worker`` from
+        # the project root.  The import root is therefore ``src`` (the parent
+        # of this package), not the project root itself.
+        source_path = str(Path(__file__).resolve().parents[1])
         environment["PYTHONPATH"] = os.pathsep.join(
             part for part in (source_path, environment.get("PYTHONPATH", "")) if part
         )

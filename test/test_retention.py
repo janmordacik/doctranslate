@@ -100,6 +100,32 @@ class RetentionTests(unittest.TestCase):
         self.assertFalse(sidecar.exists())
         self.assertFalse(report["sidecar_limit_exceeded"])
 
+    def test_cleanup_queue_workdirs_accepts_path_objects_on_windows(self):
+        child = self.root / "child"
+        child.mkdir()
+        output = child / "translated.pdf"
+        output.write_text("pdf", encoding="utf-8")
+        self.queue.write_text(json.dumps({
+            "items": [{"kind": "control"}, {
+                "kind": "job", "state": "done", "output": str(output),
+            }],
+        }), encoding="utf-8")
+        reports = cleanup_queue_workdirs(self.queue, dry_run=True)
+        self.assertEqual(len(reports), 2)
+
+    def test_cleanup_queue_workdirs_accepts_path_objects_on_windows(self):
+        child = self.root / "child"
+        child.mkdir()
+        output = child / "translated.pdf"
+        output.write_text("pdf", encoding="utf-8")
+        self.queue.write_text(json.dumps({
+            "items": [{"kind": "control"}, {
+                "kind": "job", "state": "done", "output": str(output),
+            }],
+        }), encoding="utf-8")
+        reports = cleanup_queue_workdirs(self.queue, dry_run=True)
+        self.assertEqual(len(reports), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
