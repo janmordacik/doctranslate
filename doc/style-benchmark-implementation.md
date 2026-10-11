@@ -6,7 +6,7 @@ Tento plán nahrazuje starší mikroplán S01–S56 v parent issue.
 
 ## Pracovní režim a minimální kontext
 
-Zpracovat jeden B-krok v jednom běhu; každý krok obsahuje implementaci i své
+Zpracovat jeden B-krok nebo jeho podkrok v jednom běhu; obsahuje implementaci i své
 testy a musí zanechat funkční checkout. Nejprve načíst AGENTS.md, doc/tools.md,
 tento úvod a pouze zadání aktuálního B-kroku. Potom načíst dotčené symboly
 a jejich přímé call sites pomocí rg. Celý translate.py nebo historii chatu
@@ -109,8 +109,176 @@ Větší B-krok lze reviewovat po invariantu, ne rozdělit kontrakt od jeho test
 
 Výchozí doporučené pořadí: B01 → B02 → B03 → B04 → B05 → B06 → B07 → B08.
 B04 je nezávislý a může být připraven dříve; souběžné editace stejného repa
-nejsou povoleny. B-ID jsou jednotky předání. S01–S56 se používají jen
-v historických comments a již neurčují nové pořadí.
+nejsou povoleny. B-ID jsou reviewovatelné celky; B02/B03 mají menší jednotky předání níže.
+S01–S56 jsou jen historická evidence, nikoli aktuální pořadí.
+
+## Předání pro Codex 5.6 Luna
+
+Implementátora určil uživatel jako Codex 5.6 Luna. Jde o plánovací předpoklad,
+nikoli naměřenou schopnost modelu. Qwen/Continue omezení zůstává platné;
+tato specifikace žádného agenta nespouští ani nezakládá nový chat.
+
+B02 a B03 předávat po níže uvedených krocích; pro ostatní B-kroky platí
+stávající zadání. Jeden krok = jedna změna s testy a review. Po dokončení
+zapsat jeho ID do parent comments; nevydávat dokončení B02.1 za celé B02.
+Rozhraní níže jsou cílová, v současném checkoutu dosud neexistují.
+
+### Pevné kontrakty
+
+- SegmentRequest dostane poslední nepovinné pole target_variant: str = "auto",
+  aby se nezměnil význam stávajících pozičních argumentů.
+- Prompt zůstane v ai/translation.py a zachová první pole system a user.
+  Přidat source_language: str = "", target_language: str = "" a
+  structured: bool = False jako poslední nepovinná pole. PromptBuilder vždy
+  vyplní jazyky; stará dvouargumentová konstrukce zůstane použitelná.
+- StyleLibrary.resolve_variant(value: str | None, target_language: str) -> str
+  vrací kanonické ID nebo "auto", nikoli směs stringu a objektu.
+  Profil se získává samostatně StyleLibrary.load(id) -> StyleProfile.
+- compose_policy(source_language: str, target_language: str,
+  target_variant: str = "auto", *, library: StyleLibrary | None = None) -> str
+  patří do ai/styles.py. Vrátí důvěryhodné instrukce; neobsahuje zdrojový text.
+  Normalizuje jazyky a variantu, nesahá do souborů dokumentu ani na síť.
+- style_identity(target_variant: str, *, library: StyleLibrary | None = None)
+  -> dict[str, str] vrátí přesně target_variant, style_revision, style_hash.
+  Hash je SHA-256 kanonického JSON profilu (sort_keys=True, ensure_ascii=False,
+  separators=(",", ":")), UTF-8; změna verze/politiky/ukázky změní hash.
+  Pro auto je style_revision identifikátor verze zachování původního stylu
+  a style_hash hash této konstantní politiky. Auto nikdy nenačítá profil.
+- AiBackend a HttpAiBackend dostanou translate_prompt(prompt: Prompt) -> str.
+  HttpAiBackend používá _call_prompt(prompt: Prompt) -> str v konkrétním
+  provideru a stejnou validaci neprázdného výsledku jako translate.
+  Nepředávat instrukce zpět do translate(text, source, target).
+  Import typu Prompt do contracts.py pouze přes TYPE_CHECKING.
+- OllamaPromptStrategy.build zachová dosavadní argumenty a přidá poslední
+  keyword-only instructions: str = "". Instrukce vloží do instrukční části
+  před dokumentová data. Je-li instructions prázdné, staré volání se nezmění.
+- JobSpec dostane poslední pole target_variant: str = "auto".
+  JobOptions.from_job a make_job přijímají stejné pole/default.
+  Produkční modul vede TARGET_VARIANT = "auto"; Worker.run_job jej nastavuje
+  z každého jobu včetně auto. Katalog/resolver nepatří do plánování workeru.
+- Identita překladu používá target_variant + style_revision + style_hash
+  a prompt_revision. Přidat je do legacy job/cache i JobRunner.identity.
+  PDF-only čte tato pole jako původ hotového HTML, ne požadavek na nový překlad.
+
+Mapování hotového Prompt na HTTP request:
+
+| Provider | Instrukce | Data | Zachovat |
+|---|---|---|---|
+| OpenAI | messages role=system, content=prompt.system | role=user, content=prompt.user | endpoint, auth, parser odpovědi |
+| Gemini | systemInstruction.parts[0].text | contents[0].parts[0].text | auth, endpoint, parser odpovědi |
+| Claude | system=prompt.system | messages role=user | max_tokens, auth, parser odpovědi |
+| Běžná Ollama | system message | user message | stávající model/options/rušení |
+| TranslateGemma | modelová strategie, instructions=prompt.system | text=prompt.user, jazyky z Prompt | structured režim a validace ID |
+
+Nepřidávat SDK ani měnit provider endpointy. U TranslateGemma smí transport
+sloučit instrukce a data do jednoho user message podle modelové strategie;
+musí zachovat jednoznačnou datovou hranici a nesmí styl vydávat za zdroj.
+Offline payload testy ověřují mapování, nikoli podporu živého cloudu.
+
+### Uzavřené integrační kroky
+
+Odhady zahrnují implementaci i cílené testy. Součty odpovídají B02/B03
+v hlavní tabulce; nepočítat podkroky podruhé do odhadu celku.
+
+| ID | Dependency | Výsledek | Čas | Řádky | Pracovní tokeny |
+|---|---|---|---:|---:|---:|
+| B02.1 | B01 | Pevný promptový kontrakt a společná politika | 20–30 min | 60–100 | 2k–4k |
+| B02.2 | B02.1 | Skutečné requesty všech providerů | 20–35 min | 70–125 | 3k–5k |
+| B02.3 | B02.2 | Produkční batch a cloudový bridge | 20–35 min | 70–125 | 3k–5k |
+| B03.1 | B02.3 | Job, worker a předání varianty | 15–25 min | 40–70 | 2k–3k |
+| B03.2 | B03.1 | Cache/checkpoint identita a odmítnutí jiné varianty | 20–40 min | 80–120 | 3k–5k |
+| B03.3 | B03.2 | HTML provenance, discovery a PDF-only | 15–25 min | 50–90 | 2k–4k |
+
+B02.1: číst jen SegmentRequest, Prompt/PromptBuilder a katalog z B01.
+Povolené změny: ai/contracts.py, ai/translation.py, ai/styles.py a
+test/test_ai_translation.py/test_ai_styles.py. Přidat kontrakty, variantovou
+politiku a style_identity. Stávající volající zachovají default auto; zatím
+nepřepojovat provider dispatch. Ověřit auto, cs profil s de cílem, konflikt
+politiky, stabilní hash a změnu hash po změně obsahu. Prompt user nesmí přenést
+zdrojovou instrukci do system. Testy: test_ai_styles.py a test_ai_translation.py.
+
+B02.2: číst HttpAiBackend.translate/translate_segments a pouze request/response
+metody ollama/openai/gemini/claude. Povolené změny: tyto provider moduly,
+ai/contracts.py pro protokol a test/test_ai_providers.py/test_ai_translation.py.
+Implementovat přesně translate_prompt a _call_prompt z kontraktů výše.
+translate(text, source, target) je kompatibilní wrapper pro auto; segmenty
+použijí PromptBuilder s variantou. Same-language auto vrátí text beze změny
+bez HTTP, explicitní variantu skutečně odešle. Fake transport ověří payload
+každého providera, návrat textu a chybu empty_output. Žádný cloudový request.
+
+B02.3: číst translate.translate_batch, ProviderBatchClient.translate a pouze
+související testy v test_layout_and_models.py. Povolené změny: translate.py,
+ai/ollama.py pro strategii a test/test_layout_and_models.py.
+Batch sestavit jako Prompt: system obsahuje existující pravidla JSON fragmentů
+a compose_policy, user obsahuje pouze serializovaná originals. Legacy Ollama
+payload vytvořit z Prompt s modelovou strategií; ProviderBatchClient z
+system/user messages sestaví Prompt a zavolá backend.translate_prompt.
+Nezískávat důvěryhodná pravidla parsováním JSON dokumentu. Zachovat přípravu
+a obnovu [[KEEP...]], ID, schéma a diagnostiku. Ověřit zachycením payloadu:
+styl jednou, původní data beze změny, cloud bez dvojitého překladu instrukcí.
+TARGET_VARIANT v této fázi může být jen interní default auto; CLI až B06.
+Pokud IN_LANG=OUT_LANG a varianta=auto, vrátit připravená data přes stávající
+lokální obnovu/validaci bez client.translate. Test musí zachytit nulový počet
+AI requestů i v produkční batch cestě, nikoli pouze v HttpAiBackend.
+
+B03.1: číst make_job, normalizaci fronty, JobOptions.from_job/Worker.run_job,
+JobSpec a konstrukci SegmentRequest v JobRunner.run. Povolené změny:
+queue_app.py, queue_worker.py, job_runner.py, translate.py a test_style_jobs.py.
+Přidat pole/defaulty a předat variantu do requestu. Explicitní variantu
+validovat před AI; ve fázi pdf pouze převzít metadata bez potřeby katalogu.
+Ověřit starý JSON bez pole a dva po sobě běžící joby: explicitní → auto.
+V tomto mezikroku neprovádět explicitní styl nad starou cache: před zpracováním
+takového jobu jej řízeně odmítnout jasnou chybou, dokud B03.2 nezavede úplnou
+identitu. Auto a PDF-only dál fungují. Testovat přenos hodnot odděleně od
+spuštění jobu; žádná nechráněná explicitní varianta nesmí být zpracována.
+
+B03.2: číst cache_key, job_identity/matching_plan, save/restore_work_plan,
+reuse_legacy_translation/recover_saved_response a JobRunner.identity.
+Povolené změny: translate.py, job_runner.py a test_style_jobs.py.
+Přidat style_identity i prompt_revision. Všechny cesty reuse musí ověřit
+kompatibilitu, žádná nesmí variantu obejít. Pokud existující plan patří jiné
+variantě/politice, zachovat dosavadní bezpečné odmítnutí matching_plan a
+doporučit jiný outfile; starý HTML/PDF/JSON nepřepsat ani nemazat.
+Pro nový outfile odlišné cache klíče zajistí nový překlad. Starý checkpoint
+bez style identity řízeně odmítnout, pokud kompatibilitu nelze prokázat.
+Teprve s těmito kontrolami odstranit dočasné odmítnutí z B03.1 a jeho test
+nahradit regresí správného explicitního překladu s novou identitou.
+Ověřit: stejné ID + jiná pravidla, auto vs. explicitní, správný restart,
+legacy fallback a beze změny zachované původní soubory.
+
+B03.3: číst build_html_metadata, validate_html_against_source,
+configure_from_html/use_html_job_metadata, discover_translation_html a
+run_html_typesetting. Povolené změny: translate.py, queue_app.py a
+test_style_jobs.py/test_cli_input.py. Zapsat a obnovit provenance identity.
+Discovery pro nový překlad musí odlišit varianty; PDF-only přijme hotové HTML
+i bez nainstalovaného původního stylu a použije jeho metadata.
+Fake backend musí selhat, pokud se během PDF-only zavolá byť jednou.
+Ověřit hotové i starší HTML bez nových polí; styl nesmí změnit jeho obsah.
+
+Každý podkrok spustí výše jmenované cílené soubory přes python -m pytest
+s PYTHONPATH=src. Po B02.3 a B03.3 spustit celou offline sadu.
+U metod, které v checkoutu nesou jiné jméno nebo změnily kontrakt, zapsat
+konkrétní rozdíl a před přepojením sjednotit zadání; neprovádět velký refaktor
+jen kvůli podobnosti názvů.
+
+### Pevný sběr benchmarkových metrik B05
+
+Zvoleno: volitelný stats_callback: Callable[[dict[str, object]], None] | None
+jako keyword-only argument OllamaClient.__init__, default None. record_stats
+předá callbacku kopii raw stats pro každý dokončený request; dosavadní tisk
+i návrat str z translate(payload) zachová. Žádná druhá transport implementace.
+Výjimka callbacku není chyba modelu; runner ji zachytí jako chybu sběru/reportu.
+
+Runner resetuje zachycené stats před každým requestem. Nezamění partial stats
+předchozího požadavku za současný; nekompletní odpověď označí fail a zachová
+dostupné metriky jako partial. Každý vzorek má wall čas, generovaný text a
+metadata uvedená v B05. Percentily použijí jen úspěšné opakované vzorky
+shodné kombinace model + fixture + varianta; first request se nezapočítá.
+Benchmarkový writer ani tokenové odhady nepatří do ai providers.
+
+Před zahájením Luny stačí předat: kořen repozitáře, parent issue,
+aktuální B/podkrok a příslušný úsek tohoto plánu. Žádné další modelové
+nastavení nebo zvláštní právní/agentní workflow toto zadání nezavádí.
 
 ## B01 – katalog použitelný i po instalaci
 
@@ -121,7 +289,8 @@ Povolená integrace: package-data v pyproject.toml, veřejné AI exporty dle pot
 
 API: StyleLibrary.list(language) vrátí stabilní pořadí; load(id) vrátí
 neměnný StyleProfile; validate_all ověří duplicitní ID a politiku. auto není
-profil. resolve_variant(value, target_language) vrátí auto nebo platný profil.
+profil. resolve_variant(value, target_language) vrátí kanonické ID nebo auto;
+load(id) vrátí profil samostatně. Pevné podpisy určuje zadání pro Lunu výše.
 Profil má ID/jazyk/verzi, prompt must/should/avoid/forbidden, politiku
 vulgarity/fidelity/caricature/transformation/lexical_expansion a ukázky,
 lexikon, transformace a provenance. Žádné libovolné spuštění kódu z JSON.
@@ -146,8 +315,8 @@ test_layout_and_models a fake transport, ne živý cloud.
 
 Navržený malý kontrakt: compose_policy(source, target, variant) vytváří
 důvěryhodné instrukce; PromptBuilder je připojí před datovou hranici.
-Pro hotový prompt přidat společné translate_prompt(Prompt) nebo ekvivalentní
-interní dispatch, aby provider poslal instrukce a data jako instrukce/data.
+Pro hotový prompt přidat přesně translate_prompt(prompt: Prompt) -> str
+podle pevného kontraktu výše; provider zachová oddělené instrukce a data.
 AiBackend.translate(text, source, target) zachovat pro staré volající.
 Netvořit druhý paralelní překladač ani nevolat backend.translate nad instrukcí
 „Translate ...“ jako nad textem, který má být přeložen.
@@ -222,7 +391,7 @@ Nepoužívat obecný backend pouze vracející str k odhadování tokenů z dél
 Navržený výsledek BenchmarkSample: model, fixture_id/hash, target_variant/hash,
 prompt_revision, run_index, status, text, wall_ms, load_ms, prompt_eval_ms,
 eval_ms, prompt_tokens, eval_tokens, tokens_per_second, error_code a skip_reason.
-Převzetí raw stats udělat malým callbackem nebo návratovou obálkou bez změny
+Převzetí raw stats udělat stats_callback podle pevného kontraktu výše bez změny
 stávajícího textového návratu. PerformanceRecorder použít pro časové souhrny,
 samostatnou výsledkovou obálku pro texty a tokenová pole; není to obecná DB.
 

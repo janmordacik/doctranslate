@@ -168,6 +168,8 @@ Datum: 2026-10-11.
 
 ## Poslední aktualizace
 
+- 2026-10-11: Při zpřesnění plánu pro Lunu znovu ověřen recept pro neplatný kontext patchů: část hledané věty byla uprostřed řádku. Celé skutečné řádky načtené ze souboru použity jako kontext cílených patchů; podřetězec nepovažovat za samostatný řádek.
+
 - 2026-10-11: Recept 1 znovu použit po helper_unknown_error; execFile přes Node fungoval. Recept 5 použit po redeklaraci rows; blokové let se samostatným scope fungovalo. Celorepozitářový rg překročil 30s timeout a resetoval REPL; obnovení importů a hledání jen v doc/tasks/AGENTS.md/tasks-local-ai proběhlo za 2 s. Pro malý dotaz zadávat konkrétní kořeny, aby se neprocházely tmp a vnořený checkout. Po timeoutu ověřit dokončené patche čtením.
 - 2026-10-11: Patch selhal na Failed to find expected lines, protože hledaný text začínal uprostřed řádku. Ověřeno znovunačtení souboru a malé patche s celými skutečnými řádky; 16 cílených úprav proběhlo úspěšně. Neopakovat hromadný patch se stejným neplatným kontextem.
 

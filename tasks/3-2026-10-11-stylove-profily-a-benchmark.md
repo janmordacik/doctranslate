@@ -7,10 +7,11 @@ estimate:
   time: 5 h 20–9 h 20 čisté práce; živé benchmarky a ruční review zvlášť
   logical_lines: 1130–1990 včetně testů, katalogu a dokumentace
   tokens: 44k–78k pracovní orientace; kontext po B-krocích 3k–7k
-  subtasks: B01–B08 v doc/style-benchmark-implementation.md
+  subtasks: B01–B08; B02.1–B02.3 a B03.1–B03.3 v doc/style-benchmark-implementation.md
 description: Zavést verzovanou knihovnu jazykových stylů pro překlad a rozšířit benchmark o stylové profily, referenční překlady, výpis výsledků na obrazovku a strukturované logování.
 Priority: 3 (medium)
 Created: 2026-10-11
+Implementation agent: Codex 5.6 Luna (určen uživatelem; nyní nespouštěn)
 
 ## Cíl
 
@@ -265,7 +266,11 @@ Kanonická hodnota je target_variant=auto, --style je alias. Providerový
 profile_id je nezávislý. Podrobná rozhodnutí v plánu řeší také cs→cs auto,
 text+vision modely, first-request versus cold start a obnovu cache.
 
-Restart: zapsat poslední dokončený B-krok, změněné soubory a testy do comments.
+Pro Codex 5.6 Luna plán obsahuje přesné API kontrakty, mapování payloadů,
+šest menších kroků B02.1–B03.3 a pevný stats_callback benchmarku. Souhrnné
+odhady zůstávají stejné; podkroky se k nim nepřičítají podruhé.
+
+Restart: zapsat poslední dokončený B-krok/podkrok, soubory a testy do comments.
 Aktuálně nejsou B01–B08 implementované; tato revize upravuje pouze zadání.
 
 ## Acceptance
@@ -313,4 +318,5 @@ Aktuálně nejsou B01–B08 implementované; tato revize upravuje pouze zadání
 2026-10-11: Původní jednotný odhad 15–30 minut na každý subtask byl vyhodnocen jako nadhodnocený. Upraveno na 2–10 minut pro průzkum/dokumentaci, 10–25 minut pro malé změny a 15–30 minut pro integraci; čistý odhad celku je 6–12 hodin, elapsed odhad 8–16 hodin.
 2026-10-11: Revize proti skutečnému kódu potvrdila znovupoužití PerformanceRecorderu, segmentového překladu, JobSpec a Ollama strategií. Automatické kvalitativní skóre a dialektový detektor zůstávají mimo MVP. Odhad první verze je 5–9 hodin čisté práce a 7–13 hodin elapsed času.
 2026-10-11: Doplněn odhad velikosti změn pro každý subtask; celkem přibližně 775–1 630 logických řádků včetně testů, fixture a dokumentace.
+2026-10-11: Implementátorem bude podle uživatele Codex 5.6 Luna. Doplněny pevné kontrakty, mapování provider payloadů, callback metrik a šest menších integračních kroků s odhady/testy. Agent nebyl spuštěn; jde pouze o zpřesnění předání, ne ověření jeho schopností.
 2026-10-11: Revize proti skutečným worker/provider cestám: původní S01–S56 a rozporné odhady nahrazuje plán B01–B08 v doc/style-benchmark-implementation.md. Doplněny minimální kontext, odhady, cache/obnova, balení dat, jednotný prompt dispatch, modelové schopnosti a přesné metriky. Vyřešeny rozpory varianty/style_id a cs→cs auto; diagramy odkazují na jeden cílový návrh. Implementace ani modelové requesty při revizi neproběhly.
