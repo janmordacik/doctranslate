@@ -15,7 +15,7 @@
 - Rozlišuj aktuální implementaci a cílový návrh. Diagramy aktualizuj s implementací a zahrň je do akceptačních kritérií příslušných tasků.
 - Udržuj nejvyšší užitečnou úroveň, ne diagram každé privátní metody. Tasky odkazují na autoritativní diagramy, nevytvářej redundantní kopie.
 - Zadání modularizace a procesní index jsou v doc/modularization-analysis.md; skutečný stav implementace vede status/comments v tasks/.
-- Globální rozšíření pravidla pro SW projekty je připravené v doc/global-uml-rule.patch. Zápis ~/.codex/AGENTS.md v této relaci selhal i po udělených oprávněních; tento projektový fallback zůstává povinný, dokud nebude globální patch aplikován.
+- Globální rozšíření pravidla pro SW projekty je zapsané v ~/.codex/AGENTS.md; tento projektový fallback pravidlo opakuje kvůli jednoznačnému kontextu projektu.
 
 ## Komentáře a docstringy
 

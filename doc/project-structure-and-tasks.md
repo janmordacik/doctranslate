@@ -145,11 +145,11 @@ Nízká priorita refaktoringu není důvod přeskočit kritické opravy. Po jeji
 
 ## Nový backlog modularizace
 
-Implementační analýza M01–M14 je v [implementační analýze](modularization-analysis.md#a12-tasky-poradi-a-dokonceni). V tomto průchodu byly tasky M01–M14 dokončeny, ověřeny a přesunuty do \`tasks/done/\`; každý zachovává dependency, ověřovací podmínky a historii v \`comments\`. Otevřené zůstávají pouze M15 a evidenční task lokálního agenta, které tento průchod záměrně neřeší. Výše uvedená tabulka je evidence předchozí revize.
+Implementační analýza M01–M14 je v [implementační analýze](modularization-analysis.md#a12-tasky-poradi-a-dokonceni). V tomto průchodu byly tasky M01–M14 dokončeny, ověřeny a přesunuty do \`tasks/done/\`; každý zachovává dependency, ověřovací podmínky a historii v \`comments\`. M15 je nyní dokončený a přesunutý do \`tasks/done/\`; otevřený zůstává evidenční task lokálního agenta, který tento průchod záměrně neřeší. Výše uvedená tabulka je evidence předchozí revize.
 
 ## Povinná UML dokumentace high-level architektury
 
-Společné pravidlo patří do globálního uživatelského ~/.codex/AGENTS.md, sekce Software architecture documentation, pro softwarové projekty. Zápis v této relaci selhal i po udělení oprávnění. Do aplikace globálního patche pravidlo závazně obsahuje [projektový AGENTS.md](../AGENTS.md); překážka je v [M15](../tasks/4-2026-10-10-globalni-uml-pravidlo-zapis.md).
+Společné pravidlo je zapsané v globálním uživatelském ~/.codex/AGENTS.md, sekce Software architecture documentation, pro softwarové projekty. Projektový [AGENTS.md](../AGENTS.md) pravidlo opakuje kvůli jednoznačnému kontextu a task M15 je uzavřený v [tasks/done](../tasks/done/4-2026-10-10-globalni-uml-pravidlo-zapis.md).
 
 - Strukturu aplikace, veřejné kontrakty, komponenty a závislosti popisovat Mermaid UML classDiagram.
 - Všechny high-level aplikační procesy popisovat Mermaid UML sequenceDiagram; zahrnout důležité alternativy, chyby, přerušení a obnovu.

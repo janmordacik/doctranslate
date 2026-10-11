@@ -68,12 +68,12 @@ Tento soubor načítej na začátku každé práce v projektu. Je to praktická 
 - **Ověření:** 2026-10-10 zápis 717řádkové analýzy rozdělen na Add File a navazující Update File, tasky zapsány v menších skupinách; apply_patch return code 0.
 - **Stav:** ověřený postup, žádný přímý fs.writeFile.
 
-### Recept 8: Globální AGENTS.md nelze zapsat ani přes udělená práva
+### Recept 8: Ověření globálního UML pravidla v AGENTS.md
 
-- **Příznak:** apply_patch i Codex executable hlásí Failed to write file C:/Users/mordacik/.codex/AGENTS.md po session grantu souboru i parent adresáře.
-- **Postup:** ověř read-only atribut a ACL pouze čtením, případně jednou obnov persistentní nástrojové prostředí. Když zápis stále selhává, nepřepisuj soubor jinými FS triky a neměň ACL automaticky. Zapiš autorizované pravidlo jako projektový fallback a připrav globální patch k dořešení.
-- **Ověření:** 2026-10-10 Get-Item: Archive bez ReadOnly; Get-Acl: Modify pro sandbox skupinu. Reset node REPL zápis nezprovoznil. Projektový AGENTS.md/analýza/tasky zapsány úspěšně.
-- **Stav:** nevyřešené omezení prostředí; příčina není prokázaná. Evidence: doc/global-uml-rule.patch a tasks/4-2026-10-10-globalni-uml-pravidlo-zapis.md.
+- **Příznak:** projektová dokumentace obsahuje fallback, ale je třeba ověřit, zda už je pravidlo zapsané i v globálním `C:/Users/mordacik/.codex/AGENTS.md`.
+- **Postup:** globální soubor čti pouze jako celek/tail a vyhledej jedinou sekci `Software architecture documentation`; neprováděj duplicitní zápis. Ověř povinný `classDiagram`, `sequenceDiagram`, procesní index, rozlišení current/target a alternativní scénáře.
+- **Ověření:** 2026-10-11 globální sekce nalezena, obsah odpovídá pravidlu a ostatní policy pokračuje beze změny. Projektový task M15 synchronizován a uzavřen.
+- **Stav:** vyřešeno; projektový fallback zůstává záměrně zachovaný.
 
 ## Evidence nového receptu
 

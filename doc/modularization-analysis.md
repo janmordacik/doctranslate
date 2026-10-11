@@ -20,7 +20,7 @@ Autorita: schválené požadavky uživatele v chatu. Níže uvedená technická 
 - Tato analýza neopravňuje sama spustit implementaci, lokálního agenta, instalaci modelů, cloud smoke, plnou sazbu knihy, commit nebo push.
 - Implementovat po odpovědnostech; zachovat ruční HTML editace, TOC regrese, staré checkpointy a artefakty.
 - Povinné Mermaid UML: high-level struktura jako classDiagram, všechny dokumentované high-level procesy jako sequenceDiagram. Index procesů A13 definuje pokrytí.
-- Globální SW pravidlo má být v ~/.codex/AGENTS.md, sekce Software architecture documentation. Zápis v této relaci selhal i po udělených oprávněních; povinné pravidlo zatím platí přes projektový AGENTS.md. [Projektové pravidlo](../AGENTS.md), [provozní task M15](../tasks/4-2026-10-10-globalni-uml-pravidlo-zapis.md). Projektový formát tasků: [project-structure-and-tasks.md](project-structure-and-tasks.md).
+- Globální SW pravidlo je v ~/.codex/AGENTS.md, sekce Software architecture documentation; projektový AGENTS.md je jeho explicitní fallback. [Projektové pravidlo](../AGENTS.md), [uzavřený provozní task M15](../tasks/done/4-2026-10-10-globalni-uml-pravidlo-zapis.md). Projektový formát tasků: [project-structure-and-tasks.md](project-structure-and-tasks.md).
 
 ### Implementovaný stav po M01–M14
 
@@ -742,7 +742,8 @@ Oficiální zdroje ověřené při návrhu 2026-10-10:
 ## A15 Evidence a restart práce
 
 2026-10-10: Analýza založena statickou revizí core, PDF adapteru, configu, queue_app/worker a legacy extraction/translation/typesetting/cache. Produkční kód v rámci zadání nezměněn.
-2026-10-10: Požadavek uživatele: provider-specific Configuration, API key i podporovaný browser login; povinné high-level Mermaid UML také jako globální SW pravidlo. Projektové pravidlo zapsáno, globální zápis selhal přes udělená práva; patch a M15 evidují dořešení.
+2026-10-10: Požadavek uživatele: provider-specific Configuration, API key i podporovaný browser login; povinné high-level Mermaid UML také jako globální SW pravidlo. Projektové pravidlo zapsáno, globální zápis byl v předchozí relaci nedostupný; patch a M15 evidovaly dořešení.
 2026-10-10: Nové tasky created. Při restartu načíst AGENTS.md, doc/tools.md, analýzu a nejbližší připravený task. Skutečný stav vede status/comments, pořadí dependency.
 2026-10-10: Dokumentační kontrola: 14 implementačních tasků + M15 provozní překážka, 1 class diagram a 8 sequence diagramů. Dependency jsou acyklické a existují. Kontrolována textová struktura Mermaid; lokální mmdc není dostupné, grafický render nebyl proveden. git diff --check prošel.
 2026-10-10: Implementace M01–M14 dokončena v jednom průchodu. Po jednotlivých fázích proběhly cílené testy; závěrečný offline běh \`python -m pytest test -q\` skončil \`81 passed\`, \`compileall\` i \`git diff --check\` prošly. Tasky byly přesunuty do \`tasks/done/\`; M15 a task lokálního agenta zůstaly záměrně otevřené.
+2026-10-11: Ověřeno, že globální ~/.codex/AGENTS.md již obsahuje sekci Software architecture documentation s povinnými Mermaid UML pravidly. M15 byl uzavřen a projektové odkazy aktualizovány; historické záznamy výše zůstávají beze změny.
