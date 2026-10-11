@@ -82,7 +82,7 @@ zachovat stabilní block/fragment ID, checkpointy, cancel a HTML/PDF oddělení.
   cold/warm, tokens/s, čas dávky, počet retry, RAM/VRAM, velikost checkpointů
   a stabilita výstupního HTML.
 - Výsledky uložit do tmp jako lokální benchmark artefakty a shrnout do
-  doc/translate.md; do repozitáře přidat jen malé anonymizované fixtures.
+  doc/technical-overview.md; do repozitáře přidat jen malé anonymizované fixtures.
 
 ## Benchmarkovací vyhodnocení
 

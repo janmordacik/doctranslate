@@ -1,10 +1,10 @@
-# Translate
+# DocTranslate – technical overview
 
-Aktuální revize odolnosti, priorit a kódu: [revize 2026-10-10](review-2026-10-10.md). Jednotlivé plaintext issues jsou v [tasks](../tasks/); význam priorit a formát stavu jsou v revizi. Popis níže je stav implementace, nikoli záruka integračního ověření.
+Jednotlivé plaintext issues jsou v [tasks](../tasks/); jejich priority, závislosti a stav jsou vedené přímo v issue souborech. Popis níže je stav implementace, nikoli záruka integračního ověření.
 
 Struktura adresářů, formát tasků, dependency/group/type a pořadí jejich zpracování jsou závazně popsané v [pravidlech projektu a úloh](project-structure-and-tasks.md).
 
-Nové zadání: [modularizace dokumentů a AI poskytovatelů](modularization-analysis.md) obsahuje cílové kontrakty, UML diagramy a 14 navazujících implementačních tasků. Jde o plán, nikoli již implementovanou podporu cloudů. Tato část níže popisuje dosavadní stav.
+Nové zadání: [modularizace dokumentů a AI poskytovatelů](modularization-analysis.md) obsahuje cílové kontrakty a UML diagramy. Základní konfigurace cloud providerů, keyring a provider smoke kontrakty jsou implementované; živé cloudové ověření zůstává samostatným uživatelským krokem. Tato část níže popisuje dosavadní stav.
 
 ## Účel
 
@@ -34,18 +34,18 @@ Aktuální produkční cesta je stále PDF → XHTML/HTML → PDF. Nový kontrak
 | Registr adapterů | implementován |
 | Formátově nezávislá pipeline | kontrakt implementován; úplné převedení legacy sazby je další krok |
 | Konfigurovatelný model a Ollama endpoint | implementováno přes -model, -ollama-url a prostředí |
-| AI provider moduly, profily a cloud autentizace | připravená analýza a tasky; zatím neimplementováno |
+| AI provider moduly, profily a cloud autentizace | implementováno pro konfiguraci, keyring/env credentials a provider smoke kontrakt; live cloud smoke neověřen |
 | translate.cmd runner | implementováno |
 | Strukturovaný run log a výjimky | implementováno pro překlad; fronta/GUI/worker mají vlastní JSONL event log |
 | Dávková fronta v JSON | implementováno |
-| Worker jako samostatný proces | implementováno, ale revize odhalila blokující importy/launcher a chybu Windows PID kontroly |
+| Worker jako samostatný proces | implementováno; offline regresní testy pokrývají launcher, importy, liveness a zámky |
 | Průběh aktuálního jobu | implementováno přes worker-state.json; GUI progress bar, stavový text a CLI status |
 | GUI bez parametrů | implementováno |
 | Konfigurovatelný workdir a jazyk GUI | implementováno; bez konfigurace aktuální adresář |
 | Lokalizace GUI cs/en | implementováno; výchozí podle locale |
 | Mazání jobu v GUI | implementováno; při mazání aktivního jobu Update vyžádá potvrzení, zapíše změnu a worker sám přeruší právě běžící AI požadavek |
 | CLI add/start/pause/stop/status | implementováno |
-| Jednorázový globální stop | implementováno; spolehlivost závisí na opravě worker liveness a hraničních přechodů |
+| Jednorázový globální stop | implementováno; kooperativní ukončení čeká na bezpečné hranici dávky nebo zrušení HTTP požadavku |
 | Živá změna nastavení během dávky | běžné změny se uplatní podle pollu; invalidace aktuálního jobu se během AI překladu zpracuje okamžitě |
 | TranslateGemma 12B | implementována verzovaná Ollama prompt strategie; lokální benchmark proti qwen3.8:27b proběhl, TranslateGemma byla na tomto stroji rychlejší; úplné kvalitativní hodnocení zůstává omezené na krátký fixture |
 | TranslateGemma 4B | strategie je implementována; model je dostupný v Ollamě a benchmark 4B/12B/Qwen byl dokončen |
@@ -212,7 +212,7 @@ sidecar a 250 MiB souhrnně v jednom pracovním adresáři. Překročení se zap
 do reportu; při úklidu se odstraní nejstarší nechráněné sidecary, nikdy se
 nezkracuje aktivní překladová cache.
 
-Zámek se vytváří atomicky přes O_CREAT | O_EXCL. Zápis probíhá do dočasného souboru s fsync a následným os.replace. Obnova podle PID je zamýšlená, ale revize odhalila nebezpečnou PID kontrolu na Windows a závody stale recovery. Do opravy nelze tuto část považovat za spolehlivou; viz [revize](review-2026-10-10.md). Runtime soubory jsou ignorované Gitem. Cesty k worker.lock a worker-state.json se odvozují od konkrétního souboru fronty.
+Zámek se vytváří atomicky přes O_CREAT | O_EXCL. Zápis probíhá do dočasného souboru s fsync a následným os.replace. Obnova stale zámku používá platformně bezpečnou kontrolu vlastnictví a je kryta offline regresními testy. Runtime soubory jsou ignorované Gitem. Cesty k worker.lock a worker-state.json se odvozují od konkrétního souboru fronty.
 
 ### Schéma fronty
 
@@ -581,42 +581,35 @@ Pro srovnání checkpointů použijte jiný výstupní soubor a --mode checkpoin
 
 Statická diagnostika referenčního běhu zjistila 493 stran, přibližně 5 803 textových bloků a přibližně 104,7 GB volné RAM. Vizuální sazba referenčního dokumentu ani dlouhý benchmark nebyly v této revizi spuštěny.
 
-### Výkon PDF sazby
-
-Původní sazba zapisovala celý rostoucí PDF dokument po každé stránce a při každém zápisu prováděla kompresi a garbage collection. Pro 493stránkový dokument to znamenalo stovky úplných přepisů výstupu.
-
-Aktuální režim adaptive:
-
-- při dostatečné rezervě RAM drží pracovní PDF v paměti a provede jeden optimalizovaný zápis na konci;
-- při nízké rezervě přejde na rychlé checkpointy po PDF_CHECKPOINT_PAGES stranách;
-- checkpointy se zapisují bez nákladné optimalizace; finální zápis používá garbage=4 a deflate=True;
-- při přerušení zůstává v JSON plánu poslední skutečně uložený checkpoint.
-
-Režim lze vynutit přes --pdf-save-mode memory|checkpoint|adaptive a interval přes --pdf-checkpoint-pages N. Pro měření použijte připravený runner:
-
-    python tools/performance_benchmark.py --infile source.pdf --htmlfile translated.html --outfile benchmark-memory.pdf --mode memory
-
-Pro srovnání checkpointů použijte jiný výstupní soubor a --mode checkpoint --checkpoint-pages 1 nebo vyšší interval. Runner vyžaduje kompletní HTML, Ollamu ani síť nepoužívá a vytvoří .performance.json a .performance.md.
-
-Statická diagnostika referenčního běhu zjistila 493 stran, přibližně 5 803 textových bloků a přibližně 104,7 GB volné RAM. Vizuální sazba referenčního dokumentu ani dlouhý benchmark nebyly v této revizi spuštěny.
-
 - Pracovní kopie: C:/Users/mordacik/Documents/Codex/doctranslate.
 - Zdrojový balíček: src/doctranslate/; jediný uživatelský launcher je translate.cmd.
 - Projektová dokumentace je v doc/; trvalá testovací data jsou v test/mock/; tmp/ obsahuje pouze lokální pracovní artefakty. Runtime fronta a výchozí výstupy jsou v nastaveném workdir.
-- Klasifikace JSON artefaktů a návrh úklidu jsou v doc/cleanup-candidates.md.
-- Lokální Git má historii; při revizi HEAD 70d9fd9 (2026-10-10, AI doc translation). V rámci revize nebyl proveden commit ani push; vzdálený stav se neověřoval.
-- Přidány src/doctranslate/, queue frontend/worker, testy, runner a dokumentace.
-- Starší Qwen delegace selhávaly na Continue serveru. Revize znovu potvrdila read calibration exit1 bez tool callů; nontriviální kódové úpravy nyní zůstávají odložené podle supervisor policy.
-- Revize 2026-10-10: offline suite nyní prochází 51 testy včetně subprocess regresí pro worker, souběžnou obnovu stale locku, storage fault injection, bootstrap bez PDF engine, Ollama discovery a JSONL observability. Ollama, modely a vizuální PDF kontrola zůstávají neověřené; podrobná evidence a meze testování jsou v `review-2026-10-10.md`.
+- Poslední ověřená offline regrese: python -m pytest test -q — 156 testů a 4 subtesty.
+- Další preflight: python -m compileall -q src/doctranslate a git diff --check.
+- Živá Ollama, cloudové API, dlouhý benchmark a vizuální kontrola PDF zůstávají samostatnými provozními kroky; offline testy je nepotřebují.
+- Lokální agent se v tomto projektu nepoužívá; implementace a validace probíhají přímo v repozitáři.
+
+### Protokol restartu práce
+
+1. Ověřit doc/tools.md, stav repozitáře a aktivní issue v tasks/.
+2. Spustit offline testy a kompilaci uvedené výše.
+3. Pro živý překlad ověřit dostupnost Ollamy a požadovaného modelu; pro sazbu PDF připravit vstupní PDF i hotové XHTML.
+4. Po změně architektury aktualizovat tento dokument a příslušné Mermaid diagramy.
+5. Commit nebo push provést pouze na výslovný pokyn uživatele.
+
+Odložené vstupy a ruční ověření:
+
+- reprezentativní PDF pro vizuální regresi;
+- dlouhý benchmark TranslateGemma/Qwen;
+- živé cloudové smoke testy po doplnění provider credentials;
+- rozhodnutí, zda výstupní PDF a překladové artefakty patří do repozitáře.
 
 ### Doporučené další kroky
 
-1. Vyřešit P1 bezpečné ověření PID na Windows a P2 start/importy workeru.
-2. Dokončeno: lock, konflikty fronty, životní cyklus workeru, zápisové chyby a bootstrap jsou pokryté offline regresemi.
-3. Dokončeno: jednotné CLI chyby, dependency preflight a offline fake-backend test jsou implementované.
-4. Ujasnit víceuzlový text/markup kontrakt; teprve potom postupně připojovat pluginy a immutable JobContext.
-5. Vizuální PDF regresi a delší ručně hodnocený benchmark TranslateGemma provést samostatně; aktuální sazbu PDF spouští uživatel.
-6. Commit/push pouze po výslovném rozhodnutí.
+1. Pokračovat v modularizaci zdrojů podle aktivního issue.
+2. Provést vizuální PDF regresi a delší ručně hodnocený benchmark TranslateGemma.
+3. Podle potřeby doplnit živé cloudové smoke testy.
+4. Commit/push pouze po výslovném rozhodnutí.
 
 ## Provozní poznámky nástrojů
 

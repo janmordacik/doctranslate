@@ -141,7 +141,7 @@ sequenceDiagram
 - Náhled se obnovuje pouze na hranici dávky a nemění uložený překlad.
 - Po Stop nebo chybě zůstane vidět poslední dostupný náhled a srozumitelný stav.
 - Výkon běžného překladu se měřením nezhorší významně; nezavádí se streaming.
-- Aktualizovat doc/translate.md a autoritativní Mermaid diagramy, pokud se
+- Aktualizovat doc/technical-overview.md a autoritativní Mermaid diagramy, pokud se
   změní runtime kontrakt.
 
 ## comments

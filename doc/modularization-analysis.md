@@ -861,4 +861,4 @@ sequenceDiagram
     end
 ~~~
 
-Implementation is offline tested. The GUI target-language selector and manual GUI smoke remain open; live Ollama benchmark and visual PDF verification are deliberately user-run operations.
+Implementation is offline tested. The GUI target-language selector is implemented; manual GUI smoke, live Ollama benchmark and visual PDF verification are deliberately user-run operations.

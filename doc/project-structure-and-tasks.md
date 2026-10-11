@@ -1,6 +1,6 @@
 # Struktura projektu a evidence úloh
 
-Tato pravidla popisují aktuální lokální projekt a další práci. Stav ověřen 2026-10-10. Nálezy a rozsah revize jsou v [revizi](review-2026-10-10.md); základní popis aplikace v [translate.md](translate.md).
+Tato pravidla popisují aktuální lokální projekt a další práci. Stav ověřen 2026-10-11. Základní popis aplikace je v [technical-overview.md](technical-overview.md); otevřené a uzavřené změny jsou evidované v tasks/.
 
 ## Struktura projektu
 
@@ -32,9 +32,8 @@ doctranslate/                      kořen aktivního repozitáře
 │   ├── regression/               procedury dokumentové regrese
 │   └── mock/                     trvalé testovací PDF/HTML a referenční archiv
 ├── doc/                          projektová dokumentace
-│   ├── translate.md              funkce, architektura a aktuální stav
+│   ├── technical-overview.md    funkce, architektura a aktuální stav
 │   ├── tools.md                  kuchařka nástrojů a workaroundů
-│   ├── review-2026-10-10.md       revize a index konkrétních issues
 │   ├── modularization-analysis.md  cílové formátové/AI moduly, UML a implementační backlog
 │   └── project-structure-and-tasks.md
 ├── tasks/                        aktivní plaintext issues
@@ -54,7 +53,7 @@ doctranslate/                      kořen aktivního repozitáře
 - Kořenový `translate_job.json` je stávající legacy soubor, ne nový požadavek pro root. Jeho budoucí umístění musí respektovat workdir; tato dokumentační změna jej nepřesouvá.
 - Povinný protokol lokálního agenta používá kořenové `tmp_local_agent_in.md`, `tmp_local_agent_out.log`, `tmp_local_agent_checkpoint.json`. Jsou ignorované Gitem, nemazat je automaticky.
 - `.git`, `.pytest_cache` a `__pycache__` jsou správa repozitáře/generované cache. V kořeni navíc existuje ignorovaný adresář `doctranslate/` s vlastním Git repozitářem: jde o oddělenou lokální kopii, nikoli zdroje tohoto balíčku. Nerevidovat, neměnit ani nemazat jej automaticky.
-- Další dokumenty v `doc`, například testingRules, localAgent a cleanup-candidates, zůstávají zachované. Strom ukazuje podstatné položky, ne kompletní inventuru.
+- doc obsahuje pouze aktuální technický přehled, uživatelský manuál, architektonickou analýzu, specializovaný plán stylů/benchmarku a kuchařku nástrojů. Historické revize a jednorázová zadání jsou v issue historii nebo byla odstraněna.
 
 ## Formát task souboru
 

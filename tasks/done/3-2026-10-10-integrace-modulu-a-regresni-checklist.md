@@ -16,7 +16,7 @@ Evidence:
 Statická revize 2026-10-10 a explicitní požadavky uživatele na modularizaci formátů/AI, provider-specific konfiguraci a autentizaci.
 
 Affected files/symbols:
-test/test_* a test/mock, doc/translate.md, doc/modularization-analysis.md a stav/comments všech rodičů.
+test/test_* a test/mock, doc/technical-overview.md, doc/modularization-analysis.md a stav/comments všech rodičů.
 
 Recommended change:
 1. Offline integrace fake registry/input/backend/output z CLI i workeru; providers zaměnitelné bez změny core/formátů.

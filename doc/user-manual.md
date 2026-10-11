@@ -14,7 +14,7 @@ Překladové jádro ale pracuje s HTML/XHTML s metadaty, takže další formáty
 doplnit adaptéry bez změny samotného překladu.
 
 Podrobný technický popis architektury, kontraktů a stavů je v
-[doc/translate.md](translate.md).
+[doc/technical-overview.md](technical-overview.md).
 
 ## 2. Předpoklady
 
@@ -426,8 +426,9 @@ obnovit až tehdy, když je potvrzeno, že původní proces nežije.
 ## 13. Omezení aktuální verze
 
 - Produkčně je ověřena především cesta PDF -> HTML -> PDF.
-- Přímé cloudové AI providery a jejich autentizace jsou připravené jako
-  architektonický směr, ale nejsou náhradou za lokální Ollamu ve všech tocích.
+- Cloudoví AI provideři mají implementovanou konfiguraci profilů, keyring/env
+  credentials, model discovery a smoke kontrakt. Živé ověření API nebylo
+  provedeno; lokální Ollama zůstává ověřenou cestou pro běžné zpracování.
 - Pro Gemini Login musí být kromě keyringu nastaven skutečný Google OAuth
   client ID. Zadejte ho v Gemini Configuration do pole OAuth client ID nebo
   nastavte TRANSLATE_GEMINI_OAUTH_CLIENT_ID. Výchozí placeholder se nepoužívá;

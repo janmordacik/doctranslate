@@ -486,7 +486,7 @@ samostatná evidence. Nenaprogramovat druhý katalog do widgetu.
 
 ## B08 – závěrečné ověření a dokumentace
 
-Kontext: výsledky B01–B07, doc/user-manual.md, doc/translate.md, readme.txt,
+Kontext: výsledky B01–B07, doc/user-manual.md, doc/technical-overview.md, readme.txt,
 tento plán a procesní index A13 v doc/modularization-analysis.md.
 Ověření: celá offline sada test -q, compileall src/doctranslate.
 Wheel vytvořit v tmp a instalaci ověřit v izolovaném prostředí; testovat katalog
