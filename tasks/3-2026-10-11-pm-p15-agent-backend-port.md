@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p12-contextual-provider-port.md, 3-2026-10-11-pm-p14-managed-memory-tools.md
 group: translation/engine/agent-backend
@@ -66,12 +66,30 @@ ověření mimo offline testy uvést jako samostatný krok, nikoli tvrdit hotov�
 
 ## Restart a comments
 
-S01: created
-S02: created
-S03: created
-Actual time: unavailable
-Actual logical lines: unavailable
-Actual tokens: unavailable
+S01: done
+S02: done
+S03: done
+Actual time: not measured; completed in one bounded implementation pass
+Actual logical lines: approximately 430 including adapter, contract and tests; slightly above estimate due provider validation and strict envelope coverage
+Actual tokens: not measured
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P15 implementován. Přidán AgentBackend/AgentTurnRequest/AgentTurnResponse
+port, explicitní AgentCapability a strictní decoder final/tool JSON obálky.
+Hybridní, malformed, prázdné a neznámé tool odpovědi jsou typed errors; tool
+arguments mají bounded payload.
+
+2026-10-11: Ollama adapter podporuje jeden agentní turn pouze při explicitním
+agent_tools_enabled=True. Název modelu sám schopnost neaktivuje. Payload používá
+striktní JSON envelope a odpověď se validuje proti allowlistu nástrojů. Orchestrace
+turnů zůstává mimo provider.
+
+2026-10-11: Validace: cílené testy 11 passed; celá sada 233 passed, 4 subtests
+passed; compileall src/doctranslate prošel; git diff --check bez nálezu.
+
+2026-10-11: Omezení pro další task: flag agent_tools_enabled není sám smoke test
+proti živému modelu; jeho zapnutí musí řídit vyšší konfigurace po ověření. P15
+nepřidává bounded agentní smyčku ani napojení MemoryTools, to řeší P16.

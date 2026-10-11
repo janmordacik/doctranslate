@@ -4,14 +4,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+from typing import Mapping
 
 from .context_backend import (
+    AgentCapability,
+    AgentTurnRequest,
+    AgentTurnResponse,
     ContextualCapability,
     ContextualRequest,
     ContextualResult,
+    decode_agent_turn_response,
     decode_contextual_results,
+    require_agent_capability,
     require_contextual_capability,
 )
+from .contracts import BackendError
+
 from .providers import HttpAiBackend
 from .translation import Prompt, translate_prompt
 
@@ -87,8 +95,17 @@ class OllamaBackend(HttpAiBackend):
     provider_id = "ollama"
     name = "Ollama"
 
-    def __init__(self, model: str, *, base_url: str = "http://localhost:11434", **kwargs):
+    def __init__(
+        self,
+        model: str,
+        *,
+        base_url: str = "http://localhost:11434",
+        agent_tools_enabled: bool = False,
+        **kwargs,
+    ):
         super().__init__(model, base_url=base_url, **kwargs)
+        # This flag is explicit configuration, not model-name autodetection.
+        self.agent_tools_enabled = agent_tools_enabled
 
     def _call_text(
         self,
@@ -133,6 +150,62 @@ class OllamaBackend(HttpAiBackend):
         strategy = prompt_strategy_for_model(self.model)
         revision = strategy.revision if strategy is not None else "ollama-contextual-v1"
         return ContextualCapability(True, prompt_revision=revision)
+
+
+    def agent_capability(self) -> AgentCapability:
+        """Expose agent turns only after an explicit provider/model smoke test."""
+        if not self.agent_tools_enabled:
+            return AgentCapability(
+                False,
+                "Ollama agent turns are disabled until an explicit smoke test succeeds",
+            )
+        return AgentCapability(True)
+
+    def request_turn(self, request: AgentTurnRequest) -> AgentTurnResponse:
+        """Send one strict JSON agent turn; orchestration remains outside the provider."""
+        require_agent_capability(self)
+        if not isinstance(request, AgentTurnRequest):
+            raise BackendError("invalid_schema", "Agent request has an invalid type")
+        if not 1 <= request.max_output_tokens <= 16384:
+            raise BackendError("limit_exceeded", "max_output_tokens must be between 1 and 16384")
+        messages: list[dict[str, str]] = [
+            {
+                "role": "system",
+                "content": (
+                    "Return exactly one JSON object. Use either "
+                    '{"type":"final","text":"..."} or '
+                    '{"type":"tool","call_id":"id","name":"allowed tool",'
+                    '"arguments":{}}. Never combine final and tool fields. '
+                    "Call only a listed tool; do not add explanations."
+                ),
+            }
+        ]
+        for message in request.messages:
+            if not isinstance(message, Mapping):
+                raise BackendError("invalid_schema", "Agent messages must be objects")
+            role = message.get("role")
+            content = message.get("content")
+            if not isinstance(role, str) or not isinstance(content, str) or not content.strip():
+                raise BackendError("invalid_schema", "Agent messages require role and content")
+            messages.append({"role": role, "content": content})
+        payload = {
+            "model": self.model,
+            "stream": False,
+            "format": "json",
+            "messages": messages,
+            "tools": [
+                {"name": name, "schema": dict(schema)}
+                for name, schema in request.tools.items()
+            ],
+            "options": {"num_predict": request.max_output_tokens},
+        }
+        value = self._post("/api/chat", payload)
+        if not isinstance(value, dict) or not isinstance(value.get("message"), dict):
+            raise self._invalid()
+        content = value["message"].get("content")
+        if not isinstance(content, str):
+            raise self._invalid()
+        return decode_agent_turn_response(content, tuple(request.tools))
 
     def translate_batch(self, requests, envelope) -> tuple[ContextualResult, ...]:
         """Send source and bounded memory as separate JSON fields."""
