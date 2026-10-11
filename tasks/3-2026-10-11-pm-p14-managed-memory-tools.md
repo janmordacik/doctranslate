@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p10-json-glossary-store.md, 3-2026-10-11-pm-p11-bounded-memory-context.md, 3-2026-10-11-pm-p13-advanced-standard-engine.md
 group: translation/engine/tools
@@ -66,12 +66,32 @@ ověření mimo offline testy uvést jako samostatný krok, nikoli tvrdit hotov�
 
 ## Restart a comments
 
-S01: created
-S02: created
-S03: created
-Actual time: unavailable
-Actual logical lines: unavailable
-Actual tokens: unavailable
+S01: done
+S02: done
+S03: done
+Actual time: not measured; completed in one bounded implementation pass
+Actual logical lines: approximately 837 including 560 new tool lines, 170 test lines and 107 changed store lines; above estimate due explicit CAS decisions and evidence persistence
+Actual tokens: not measured
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P14 implementován. Přidán allowlist MemoryTools pro lookup_terms, search_memory,
+get_occurrences, get_source, propose_term, accept_proposal, reject_proposal a
+request_revision. Všechny dotazy mají validaci schématu, limit výsledků a tokenový
+limit; výsledky vracejí revision a more. Nástroje používají pouze injektovaný store
+a datové providery, model nedostává filesystem ani obecné volání metod.
+
+2026-10-11: JsonGlossaryStore rozšířen o evidence u návrhů/schválených termínů,
+explicitní CAS reject a ochranu proti přechodu rejected/accepted. Runtime dirty
+segment IDs se sbírají při návrhu a žádosti o revizi; trvalé checkpointové
+propojení zůstává navazující integrace.
+
+2026-10-11: Validace: cílené testy 23 passed; celá sada 227 passed, 4 subtests
+passed; compileall src/doctranslate prošel; git diff --check bez nálezu.
+
+2026-10-11: Omezení pro další task: MemoryTools zatím není zapojen do AI backendu
+ani AdvancedTranslationEngine, occurrence/source provider se předává při sestavení
+a search_memory prohledává revision history lineárně. Vektorový index, persistentní
+dirty segment state a automatická tool-calling smyčka jsou mimo tento leaf.

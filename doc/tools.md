@@ -261,3 +261,32 @@ Nejprve ověřit skutečnou cestu pomocí Node fs.realpath. Pokud je cesta dostu
 ### Stav
 
 Dokumentační změna A19 byla zapsána bez zásahu do produkčního kódu.
+
+
+## 2026-10-11: Node REPL zápis větších zdrojových souborů
+
+### Chyba
+
+Při prvním pokusu o zápis většího Python souboru skončil JavaScript wrapper na
+SyntaxError: Unexpected string. Samostatná kompilace mimo wrapper nebyla problém;
+selhání způsobilo nebezpečné vložení velkého zdrojového textu do jednoho template
+stringu.
+
+### Ověřený workaround
+
+Velké zdrojové soubory zapisovat v několika menších částech přes Node
+fs.writeFile/fs.appendFile. Po každé části načíst výsledný soubor a nakonec použít
+compileall, cílené testy a git diff --check. Neposílat celý zdroj jako jeden
+wrapperový template string.
+
+## 2026-10-11: Node REPL a environment
+
+### Chyba
+
+Node REPL v tomto prostředí nemá globální process, takže pokus o sestavení env
+z process.env skončil chybou process is not defined.
+
+### Ověřený workaround
+
+Pro subprocess použít explicitní minimální prostředí, například env s jedinou
+položkou PYTHONPATH nastavenou na absolutní src, a nepotřebné proměnné nepřebírat.

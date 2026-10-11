@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import time
 import unicodedata
-from typing import Any, Callable, Iterator, Mapping, Protocol
+from typing import Any, Callable, Iterator, Mapping, Protocol, Sequence
 
 
 GLOSSARY_SCHEMA = 1
@@ -39,9 +39,21 @@ class GlossaryEntry:
     scope: str = ""
     origin: str = "manual"
     revision: int = 0
+    evidence: tuple[str, ...] = ()
 
     def to_mapping(self) -> dict[str, Any]:
-        return self.__dict__.copy()
+        return {
+            "key": self.key,
+            "source_term": self.source_term,
+            "target_term": self.target_term,
+            "source_language": self.source_language,
+            "target_language": self.target_language,
+            "sense": self.sense,
+            "scope": self.scope,
+            "origin": self.origin,
+            "revision": self.revision,
+            "evidence": list(self.evidence),
+        }
 
 
 @dataclass(frozen=True)
@@ -59,9 +71,23 @@ class GlossaryProposal:
     origin: str = "model"
     status: str = "proposed"
     revision: int = 0
+    evidence: tuple[str, ...] = ()
 
     def to_mapping(self) -> dict[str, Any]:
-        return self.__dict__.copy()
+        return {
+            "proposal_id": self.proposal_id,
+            "key": self.key,
+            "source_term": self.source_term,
+            "target_term": self.target_term,
+            "source_language": self.source_language,
+            "target_language": self.target_language,
+            "sense": self.sense,
+            "scope": self.scope,
+            "origin": self.origin,
+            "status": self.status,
+            "revision": self.revision,
+            "evidence": list(self.evidence),
+        }
 
 
 @dataclass(frozen=True)
@@ -103,8 +129,14 @@ class GlossarySnapshot:
         if not isinstance(value, Mapping) or value.get("schema") != GLOSSARY_SCHEMA:
             raise GlossaryError("invalid_schema", "Unsupported glossary schema")
         try:
-            entries = tuple(GlossaryEntry(**item) for item in value.get("entries", ()))
-            proposals = tuple(GlossaryProposal(**item) for item in value.get("proposals", ()))
+            entries = tuple(
+                GlossaryEntry(**{**item, "evidence": tuple(item.get("evidence", ()))})
+                for item in value.get("entries", ())
+            )
+            proposals = tuple(
+                GlossaryProposal(**{**item, "evidence": tuple(item.get("evidence", ()))})
+                for item in value.get("proposals", ())
+            )
             snapshot = cls(
                 revision=int(value.get("revision", 0)),
                 entries=entries,
@@ -116,7 +148,7 @@ class GlossarySnapshot:
         except (KeyError, TypeError, ValueError) as exc:
             raise GlossaryError("invalid_schema", f"Invalid glossary data: {exc}") from exc
         for proposal in snapshot.proposals:
-            if proposal.status not in {"proposed", "conflict", "accepted"}:
+            if proposal.status not in {"proposed", "conflict", "accepted", "rejected"}:
                 raise GlossaryError("invalid_schema", "Invalid glossary proposal status")
         return snapshot
 
@@ -144,6 +176,21 @@ def glossary_key(source_term: str, source_language: str, target_language: str,
     if not _normalise(source_term) or not _normalise(source_language) or not _normalise(target_language):
         raise GlossaryError("invalid_entry", "Glossary languages and source term are required")
     return "|".join(_normalise(value) for value in values)
+
+
+def _normalise_evidence(value: Sequence[str]) -> tuple[str, ...]:
+    if isinstance(value, (str, bytes, bytearray)):
+        raise GlossaryError("invalid_entry", "Glossary evidence must be a sequence of IDs")
+    try:
+        evidence = tuple(value)
+    except TypeError as exc:
+        raise GlossaryError("invalid_entry", "Glossary evidence must be a sequence of IDs") from exc
+    if any(not isinstance(item, str) or not item.strip() for item in evidence):
+        raise GlossaryError("invalid_entry", "Glossary evidence IDs must be non-empty strings")
+    if len(set(evidence)) != len(evidence):
+        raise GlossaryError("invalid_entry", "Glossary evidence IDs must be unique")
+    return tuple(item.strip() for item in evidence)
+
 
 
 def _atomic_write(path: Path, text: str) -> None:
@@ -207,18 +254,24 @@ class JsonGlossaryStore:
 
     def propose(self, source_term: str, target_term: str, source_language: str,
                 target_language: str, *, sense: str = "", scope: str = "",
-                origin: str = "model", expected_revision: int | None = None) -> GlossaryProposal:
+                origin: str = "model", evidence: Sequence[str] = (),
+                expected_revision: int | None = None) -> GlossaryProposal:
         key = glossary_key(source_term, source_language, target_language, sense=sense, scope=scope)
         target = target_term.strip() if isinstance(target_term, str) else ""
         if not target:
             raise GlossaryError("invalid_entry", "Glossary target term is required")
+        evidence = _normalise_evidence(evidence)
         with _file_lock(self.lock_path, self.lock_timeout):
             current = self.load()
             self._check_revision(current, expected_revision)
             accepted = next((item for item in current.entries if item.key == key), None)
             same = lambda item: item.key == key and _normalise(item.target_term) == _normalise(target)
             if accepted and _normalise(accepted.target_term) == _normalise(target):
-                return GlossaryProposal("accepted:" + key, key, source_term, target, source_language, target_language, sense, scope, origin, "accepted", current.revision)
+                return GlossaryProposal(
+                    "accepted:" + key, key, source_term, target, source_language,
+                    target_language, sense, scope, origin, "accepted", current.revision,
+                    accepted.evidence,
+                )
             existing = next((item for item in current.proposals if same(item)), None)
             if existing is not None:
                 return existing
@@ -228,6 +281,7 @@ class JsonGlossaryStore:
                 target_term=target, source_language=source_language, target_language=target_language,
                 sense=sense, scope=scope, origin=origin, status=status,
                 revision=current.revision + 1,
+                evidence=evidence,
             )
             history = self._event_history(current, "proposal", proposal)
             updated = GlossarySnapshot(current.revision + 1, current.entries, current.proposals + (proposal,), history)
@@ -241,18 +295,55 @@ class JsonGlossaryStore:
             proposal = next((item for item in current.proposals if item.proposal_id == proposal_id), None)
             if proposal is None:
                 raise GlossaryError("unknown_proposal", f"Unknown glossary proposal: {proposal_id}")
+            if proposal.status == "rejected":
+                raise GlossaryError("conflict", "Rejected glossary proposal cannot be accepted")
             if proposal.status == "accepted":
-                return GlossaryEntry(proposal.key, proposal.source_term, proposal.target_term, proposal.source_language, proposal.target_language, proposal.sense, proposal.scope, proposal.origin, current.revision)
+                return GlossaryEntry(
+                    proposal.key, proposal.source_term, proposal.target_term,
+                    proposal.source_language, proposal.target_language, proposal.sense,
+                    proposal.scope, proposal.origin, current.revision, proposal.evidence,
+                )
             existing = next((item for item in current.entries if item.key == proposal.key), None)
             if existing and _normalise(existing.target_term) != _normalise(proposal.target_term):
                 raise GlossaryError("conflict", "Accepted glossary entry would be overwritten")
-            entry = existing or GlossaryEntry(proposal.key, proposal.source_term, proposal.target_term, proposal.source_language, proposal.target_language, proposal.sense, proposal.scope, proposal.origin, current.revision + 1)
+            entry = existing or GlossaryEntry(
+                proposal.key, proposal.source_term, proposal.target_term,
+                proposal.source_language, proposal.target_language, proposal.sense,
+                proposal.scope, proposal.origin, current.revision + 1, proposal.evidence,
+            )
             proposals = tuple(GlossaryProposal(**{**item.to_mapping(), "status": "accepted"}) if item.proposal_id == proposal_id else item for item in current.proposals)
             entries = current.entries if existing else current.entries + (entry,)
             history = self._event_history(current, "accepted", entry)
             updated = GlossarySnapshot(current.revision + 1, entries, proposals, history)
             self._save(updated)
             return entry
+
+    def reject(self, proposal_id: str, *, expected_revision: int | None = None) -> GlossaryProposal:
+        """Reject a proposal explicitly without changing accepted entries."""
+        with _file_lock(self.lock_path, self.lock_timeout):
+            current = self.load()
+            self._check_revision(current, expected_revision)
+            proposal = next((item for item in current.proposals if item.proposal_id == proposal_id), None)
+            if proposal is None:
+                raise GlossaryError("unknown_proposal", f"Unknown glossary proposal: {proposal_id}")
+            if proposal.status == "accepted":
+                raise GlossaryError("conflict", "Accepted glossary proposal cannot be rejected")
+            if proposal.status == "rejected":
+                return proposal
+            updated_proposal = GlossaryProposal(
+                proposal.proposal_id, proposal.key, proposal.source_term, proposal.target_term,
+                proposal.source_language, proposal.target_language, proposal.sense,
+                proposal.scope, proposal.origin, "rejected", current.revision + 1,
+                proposal.evidence,
+            )
+            proposals = tuple(
+                updated_proposal if item.proposal_id == proposal_id else item
+                for item in current.proposals
+            )
+            history = self._event_history(current, "rejected", updated_proposal)
+            updated = GlossarySnapshot(current.revision + 1, current.entries, proposals, history)
+            self._save(updated)
+            return updated_proposal
 
     def _save(self, snapshot: GlossarySnapshot) -> None:
         try:
