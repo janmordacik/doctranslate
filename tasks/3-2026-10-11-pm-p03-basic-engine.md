@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p02-engine-kontrakt-a-registr.md
 group: translation/engine/basic
@@ -75,3 +75,6 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+2026-10-11: Implementován BasicTranslationEngine a BatchExecutor v translation/basic.py. Engine zachovává ID, pořadí, prázdné bloky a inline markup, používá omezený retry a kontrolu zrušení před/po dávce. PDF ani legacy translate.py nejsou importovány.
+2026-10-11: Cílené testy: 17 passed; celá offline sada: 165 passed, 4 subtests passed. git diff --check bez chyb. Nebyly nalezeny otevřené problémy; checkpoint persistence a worker dispatch zůstávají P04/P07.

@@ -12,6 +12,7 @@ from .contracts import (
     TranslatorSelection,
 )
 from .registry import TranslationEngineRegistry, TranslationRegistryError
+from .basic import BasicTranslationEngine, BatchExecutor
 
 __all__ = [
     "EngineDescriptor",
@@ -25,4 +26,6 @@ __all__ = [
     "TranslationResult",
     "TranslationCancelled",
     "TranslatorSelection",
+    "BasicTranslationEngine",
+    "BatchExecutor",
 ]
