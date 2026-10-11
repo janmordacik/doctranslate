@@ -32,6 +32,21 @@
 
 ## Plánování tasků a odhady
 
+- Před odhadem vždy dopracuj analýzu nebo návrh dotčené části tak, aby obsahoval
+  přirozené podklady rozsahu podle estimation_metrics_draft.md. Ve výchozí verzi stačí počet
+  požadovaných změn chování/kontraktů N a měněných integračních hranic B.
+  Nevytvářej složitější analýzu pouze pro sběr odhadových parametrů. Podrobný
+  seznam metrik v estimation_metrics_draft.md je návrh kandidátů, nikoli povinná tabulka tasku.
+  Podkladem může být strukturovaný text, tabulka, schéma, seznam kontraktů nebo
+  existující UML. Samostatný UML diagram není podmínkou odhadu každého tasku;
+  požadavky na centrální high-level architekturu platí nadále.
+- Pokud z podkladů nelze sestavit zdůvodněný odhad rozsahu, jde o nejasné nebo
+  neúplné zadání. Zapiš konkrétní mezery a dopracuj analýzu, chování a acceptance
+  před implementací závislé části. Chybějící počty nenahrazuj nulou ani libovolnou
+  rezervou; nejistý počet lze vyjádřit intervalem s konkrétním zdůvodněním.
+- Chybějící kalibrace implementátora je samostatný problém: inventář zadání
+  může být úplný, ale časový profil potřebuje pilot. Rozlišuj nejasnost scope
+  od nejistoty rychlosti agenta a označ předběžné konstanty podle estimation_metrics_draft.md.
 - Každý nový nebo podstatně rozšířený task musí mít plán rozdělený na samostatné,
   pochopitelné a reviewovatelné subtasks. Jeden subtask představuje jednu
   změnu chování, kontrakt, invariant nebo jiný sémanticky soudržný výsledek.
@@ -39,10 +54,11 @@
   přibližně 40 logických řádků a samostatně reviewovatelný task přibližně
   200–400 logických řádků. Dělení se řídí chováním a sémantickou atomicitou,
   nikoli mechanicky počtem řádků.
-- Pro plánování lze rozsah hrubě převést na čas: interaktivní krok kolem
-  40 řádků obvykle odpovídá přibližně 15–30 minutám čisté práce; task kolem
-  200–400 řádků přibližně 2–4 hodinám. Složitost, integrace, testy a neznámý
-  kód mají přednost před tímto převodem.
+- Čas odvozuj z parametrů a konkrétního profilu implementátora podle estimation_metrics_draft.md.
+  Model simple-v1 v části Odhadování 1.0 je pracovní kandidát, nikoli finální návod; další metriku přidávej
+  až na základě opakované chyby a ověřeného zlepšení predikce.
+  Nepoužívej společný pevný převod řádků na lidské hodiny pro člověka i agenta.
+  Logické řádky pro review odlišuj od fyzického Git diffu pro kalibraci.
 - Každý subtask musí uvést orientační čas, rozsah logických řádků, případně
   tokenový rozpočet, závislosti, očekávaný výsledek a způsob ověření. Tokeny
   jsou doplňkový rozsahový odhad, nikoli pevný limit.
