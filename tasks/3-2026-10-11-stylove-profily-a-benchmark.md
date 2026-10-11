@@ -3,6 +3,11 @@ last change: 2026-10-11
 dependency: none
 group: ai/translation/style-library
 type: feature
+estimate:
+  time: 5 h 20–9 h 20 čisté práce; živé benchmarky a ruční review zvlášť
+  logical_lines: 1130–1990 včetně testů, katalogu a dokumentace
+  tokens: 44k–78k pracovní orientace; kontext po B-krocích 3k–7k
+  subtasks: B01–B08 v doc/style-benchmark-implementation.md
 description: Zavést verzovanou knihovnu jazykových stylů pro překlad a rozšířit benchmark o stylové profily, referenční překlady, výpis výsledků na obrazovku a strukturované logování.
 Priority: 3 (medium)
 Created: 2026-10-11
@@ -31,8 +36,9 @@ Rozšířit benchmark tak, aby uživatel mohl spustit:
 
 Bez seznamu modelů se načtou modely z Ollama. Nechat benchmark projít všechny
 modely neznamená posílat překladové požadavky embedding nebo vision modelům:
-modely bez kompatibilního chat/generate rozhraní se zaznamenají jako SKIP
-s důvodem a nezpůsobí selhání celého běhu.
+prokazatelně netextové modely se zaznamenají jako SKIP
+s důvodem a nezpůsobí selhání celého běhu. Vision model s podporou textu není
+automaticky SKIP; neznámá schopnost se ověří měřeným během.
 
 ## Počáteční profily
 
@@ -78,14 +84,14 @@ neexistující nářeční tvary. Každý dialektový profil proto musí obsahov
 - kontrolní fixture pro českého rodilého mluvčího.
 
 Prompt musí výslovně požadovat češtinu, nikoli polštinu, a zdůraznit, že
-karikatura se tvoří podle profilu, ne náhodným vymýšlením slov. Po překladu
-proběhne lokální kontrola cílového jazyka a známek polské kontaminace. Kontrola
+karikatura se tvoří podle profilu, ne náhodným vymýšlením slov. V navazujícím rozšíření může po překladu
+proběhnout lokální kontrola cílového jazyka a známek polské kontaminace. Kontrola
 nesmí automaticky přepisovat text bez evidence; při podezření zapíše varování
 do logu a označí výsledek pro kontrolu.
 
 ## Výchozí režim bez stylového profilu
 
-Výchozí hodnota je style_id=auto. Nejde o další stylový profil a nesmí se do
+Výchozí hodnota je target_variant=auto. Nejde o další stylový profil a nesmí se do
 promptu vložit instrukce typu moderní spisovná čeština. Překladový prompt pouze
 požádá model, aby zachoval styl autora, registr, tón, expresivitu, dobové
 zabarvení, vulgarity a sociální charakter textu.
@@ -106,8 +112,8 @@ uživatele.
 
 ## Přepis v rámci stejného jazyka
 
-Pokud source_language a target_language mají stejnou hodnotu, je povinný
-explicitní target_variant odlišný od auto. Profil může zavést své typické slovní
+Pokud source_language a target_language mají stejnou hodnotu, přepis vyžaduje
+explicitní target_variant odlišný od auto; auto zachová vstup bez AI přepisu. Profil může zavést své typické slovní
 nebo nářeční prvky, ale nesmí přidat nový děj, fakta ani emoce. Pole
 policy.transformation určuje, zda jde o stylistický přepis, regionální
 karikaturu nebo pouze jemnou úpravu registru. Pole policy.lexical_expansion
@@ -143,14 +149,14 @@ angličtiny do hantecu:
     target_variant: cs-hantec
 
 GUI má zobrazovat oddělené volby Cílový jazyk a Cílová varianta. CLI používá
---outlang a --target-variant; --style zůstane kompatibilní alias pro existující
-profily, ale nové rozhraní má preferovat target-variant. source_variant je
+--outlang a --target-variant; --style bude alias pro ID profilu,
+ale kanonické pole je target_variant. source_variant je
 volitelná informace o vstupu a její automatická detekce nesmí měnit volbu
 uživatele.
 
 ## Kontrakt profilu
 
-Profil může být YAML nebo JSON, ale loader musí po načtení vytvořit jeden
+Pro MVP je profil JSON v balíčku; loader musí po načtení vytvořit jeden
 validovaný interní model. Minimální pole:
 
     id
@@ -213,7 +219,7 @@ Benchmark pro každý model a styl:
 
 1. ověří dostupnost a kompatibilitu modelu;
 2. provede stejný en → cs fixture;
-3. změří cold start, warm p50/p95, celkový čas, prompt/eval tokeny a tokeny/s;
+3. změří první požadavek, warm p50/p95, load_duration, celkový čas, prompt/eval tokeny a tokeny/s;
 4. zkontroluje neprázdný výstup, placeholdery, markup, čísla a nežádoucí think výstup;
 5. vypíše překlad průběžně na obrazovku;
 6. zapíše JSONL event log a závěrečný JSON/Markdown report;
@@ -231,226 +237,36 @@ GUI i CLI musí používat stejný seznam profilů a stejnou hodnotu auto:
 
 - GUI Job obsahuje combobox Style s první položkou Auto – zachovat styl originálu.
 - CLI přijímá --style auto nebo explicitní ID profilu.
-- Job uloží style_id, přičemž výchozí hodnota je auto.
-- worker předá style_id do překladového jádra bez vlastní interpretace.
+- Job uloží target_variant, přičemž výchozí hodnota je auto.
+- worker předá target_variant do překladového jádra bez vlastní interpretace.
 - benchmark používá auto, pokud styl není uveden.
 
 Konzolový řádek obsahuje minimálně:
 
-    MODEL | STYLE | STATUS | COLD | WARM_P50 | TOKENS/S
+    MODEL | VARIANT | STATUS | FIRST_REQUEST | WARM_P50 | TOKENS/S
 
 Log obsahuje celý výstup překladu, časy, parametry, dostupnost, důvody SKIP,
 chyby a identifikaci fixture. Credentials a citlivé vstupní dokumenty se
 nezapisují.
 
-## UML návrhu
+## Autoritativní implementační plán
 
-~~~mermaid
-classDiagram
-    class StyleProfile {
-        +str id
-        +str language
-        +str version
-        +StylePromptRules prompt
-        +StylePolicy policy
-        +StyleSample[] samples
-        +validate()
-    }
+[Plán B01–B08](../doc/style-benchmark-implementation.md) obsahuje aktuální
+mapu symbolů, minimální kontext, kontrakty, povolené soubory, závislosti,
+testy, odhady a cílové Mermaid class/sequence diagramy s procesním indexem.
+Nahrazuje původní S01–S56 i rozporné tabulky pracnosti. Historické komentáře
+zůstávají evidencí, nejsou aktuálním zadáním.
 
-    class StylePromptRules {
-        +str[] must
-        +str[] should
-        +str[] avoid
-        +str[] forbidden
-    }
+Pořadí: katalog → skutečně odeslané prompty → job/worker/cache → fixture →
+měřicí runner → CLI/reporty → GUI → regrese/instalace/dokumentace. Každý
+B-krok zahrnuje své testy; nevytvářet nefunkční mezistav bez ověření.
 
-    class StylePolicy {
-        +str register
-        +str period
-        +str expressivity
-        +str vulgarity
-        +str fidelity
-    }
+Kanonická hodnota je target_variant=auto, --style je alias. Providerový
+profile_id je nezávislý. Podrobná rozhodnutí v plánu řeší také cs→cs auto,
+text+vision modely, first-request versus cold start a obnovu cache.
 
-    class StyleLibrary {
-        +load(id) StyleProfile
-        +list() StyleProfile[]
-        +validate_all()
-    }
-
-    class PromptComposer {
-        +compose(text, source, target, target_variant) Prompt
-    }
-
-    class BenchmarkRunner {
-        +discover_models() ModelInfo[]
-        +run(models, target_variant) BenchmarkReport
-    }
-
-    class BenchmarkFixture {
-        +str source_text
-        +str reference_translation
-        +str target_variant
-        +ReferenceMetadata metadata
-    }
-
-    class BenchmarkReport {
-        +BenchmarkResult[] results
-        +write_json()
-        +write_markdown()
-    }
-
-    StyleProfile *-- StylePromptRules
-    StyleProfile *-- StylePolicy
-    StyleLibrary o-- StyleProfile
-    PromptComposer --> StyleProfile
-    BenchmarkRunner --> StyleLibrary
-    BenchmarkRunner --> BenchmarkFixture
-    BenchmarkRunner --> BenchmarkReport
-~~~
-
-~~~mermaid
-sequenceDiagram
-    actor User
-    participant CLI as translate CLI
-    participant Ollama
-    participant Styles as StyleLibrary
-    participant Runner as BenchmarkRunner
-    participant Backend as TranslationBackend
-    participant Log
-
-    User->>CLI: --benchmark [models] [--style id]
-    CLI->>Styles: načte a validuje styl
-    alt seznam modelů není zadán
-        CLI->>Ollama: /api/tags
-        Ollama-->>CLI: dostupné modely
-    end
-    loop každý model
-        CLI->>Runner: spusť fixture
-        Runner->>Ollama: ověří kompatibilitu
-        alt model není překladový/chat
-            Runner->>Log: SKIP + důvod
-        else model je použitelný
-            Runner->>Backend: přelož se stylem
-            Backend->>Ollama: prompt + fixture
-            Ollama-->>Backend: překlad
-            Backend-->>Runner: text + timing
-            Runner->>Log: překlad + metriky + validace
-            Runner-->>CLI: průběžný výsledek
-        end
-    end
-    CLI->>Log: závěrečný JSON/Markdown report
-~~~
-
-## Pořadí implementace
-
-1. Definovat interní model StyleProfile, enumy politik a validaci.
-2. Přidat StyleLibrary s vestavěnými profily a verzováním.
-3. Přidat PromptComposer bez zásahu do HTML/PDF adapterů.
-4. Přidat fixture registry a metadata referenčních překladů.
-5. Implementovat BenchmarkRunner s autodetekcí Ollama modelů a filtrem kompatibility.
-6. Přidat konzolový výstup, JSONL log a Markdown/JSON report.
-7. Doplnit offline testy loaderu, promptu, politik, filtrování a validace.
-8. Doplnit jeden živý smoke test s lokální Ollamou.
-9. Aktualizovat doc/translate.md a architekturu pouze podle skutečně změněných kontraktů.
-
-## Implementační plán
-
-### Fáze 0 – průzkum a kontrakty
-
-- Zmapovat současné CLI argumenty, datový model jobu, prompt builder, Ollama
-  backend, GUI comboboxy a benchmark/reporting kód.
-- Ověřit existující kontrakty pro target_language, target_variant, metadata
-  jobu a provider options; zachovat zpětnou kompatibilitu starších jobů.
-- Rozhodnout formát vestavěné knihovny profilů podle skutečných závislostí.
-  Preferovaný je verzovaný JSON/YAML registry načtený do jednoho validovaného
-  interního modelu; při zbytečné závislosti použít JSON.
-- Výstupem je návrh kontraktu a seznam dotčených souborů.
-
-### Fáze 1 – model profilu a knihovna
-
-- Implementovat StyleProfile, promptová pravidla, politiku fidelity/vulgarity,
-  ukázky, lexikon, transformační pravidla a validaci.
-- Implementovat StyleLibrary.list/load/validate_all s deterministickou
-  registrací a srozumitelnými chybami.
-- Přidat všech jedenáct počátečních profilů. Dialektové profily musí být
-  explicitně karikaturní a obsahovat lexikon, pravidla a negativní příklady
-  proti polské kontaminaci.
-- Zachovat auto jako zvláštní výchozí režim bez předdefinovaného stylu.
-
-### Fáze 2 – prompt a překladové jádro
-
-- Rozšířit překladový kontrakt o style_id/target_variant bez zásahu do
-  PDF/XHTML adapterů.
-- Implementovat PromptComposer, který oddělí důvěryhodná pravidla profilu od
-  zdrojového textu a zachová placeholdery, markup, čísla a strukturu.
-- Zajistit, že auto zachová registr originálu a explicitní profil mění styl
-  pouze v mezích své politiky.
-- Pro převod ve stejném jazyce vyžadovat explicitní variantu odlišnou od auto.
-
-### Fáze 3 – fixture a hodnocení
-
-- Zavést vlastní, právně bezpečné fixture s metadaty a případně více
-  referenčními překlady.
-- Oddělit hodnocení významu, úplnosti, gramatiky, terminologie, registru,
-  struktury a nepřidaného obsahu; nezačínat přesnou shodou jako jedinou
-  metrikou.
-- Přidat dialektové pozitivní/negativní fixture a varování při podezření na
-  polské tvary bez automatického přepisování výstupu.
-
-### Fáze 4 – benchmark a reporty
-
-- Implementovat autodetekci modelů přes Ollama, kompatibilitní filtr a stav
-  SKIP s důvodem pro embedding/vision/nepoužitelné modely.
-- Podporovat explicitní seznam modelů i režim všech modelů z ollama list.
-- Měřit cold start, warm p50/p95, celkový čas, tokeny, tokeny/s a parametry;
-  modely spouštět sekvenčně.
-- Přidat konzolový řádek MODEL | STYLE | STATUS | COLD | WARM_P50 | TOKENS/S,
-  průběžný výpis překladu, JSONL event log a JSON/Markdown report.
-- Credentials a obsah vstupních dokumentů do logu neukládat; benchmark nesmí
-  automaticky stahovat modely.
-
-### Fáze 5 – CLI/GUI napojení
-
-- CLI: --style, --target-variant, --benchmark, volitelný seznam modelů,
-  --inlang a --outlang; zachovat kompatibilní aliasy.
-- GUI: stabilní položka Auto – zachovat styl originálu, oddělené cílový jazyk
-  a varianta a zobrazení konfigurace v detailu jobu.
-- Worker pouze předává hodnoty do jádra; interpretace stylu patří knihovně a
-  prompt composeru.
-
-### Fáze 6 – validace a dokumentace
-
-- Po každé fázi spustit cílené testy a po dokončení celou offline sadu.
-- Přidat živý smoke test s lokální Ollamou jako volitelný test mimo offline CI.
-- Aktualizovat doc/translate.md, uživatelský manuál a high-level UML:
-  classDiagram pro komponenty a sequenceDiagram pro překlad, benchmark, SKIP,
-  chybu a režim auto.
-- Teprve po splnění acceptance kritérií změnit stav tasku na test; po
-  nezávislé kontrole a commitu přesunout task do tasks/done.
-
-### Akceptační kontrolní body
-
-1. Registry a všech jedenáct profilů se načtou bez Ollamy.
-2. Prompt testy prokáží izolaci profilu od vstupu a zachování
-   placeholderů/markupu/čísel.
-3. CLI a GUI používají shodný seznam profilů a shodné chování auto.
-4. Benchmark zvládne explicitní seznam i autodetekci, kompatibilitní filtr,
-   SKIP, metriky a report bez pádu na jednom chybném modelu.
-5. Offline testy pokryjí neplatná data, konfliktní politiky, stejný jazyk bez
-   varianty, dialektovou kontrolu a prompt injection.
-6. Živý smoke test ověří alespoň jeden dostupný model a neblokuje offline
-   validaci při nedostupné Ollamě.
-
-### Rizika a rozhodovací body
-
-- Nejasný formát registry vyřešit ve fázi 0 podle skutečných závislostí.
-- Automatické kvalitativní skóre může být nespolehlivé; první verze má
-  poskytovat transparentní dimenze a referenční data, nikoli jedinou známku.
-- Benchmark všech modelů může trvat dlouho; běh musí být přerušitelný a
-  průběžně zapisovat výsledky.
-- Dialektové profily jsou stylizace, nikoli lingvistická autorita; dokumentace
-  musí tuto hranici uvádět.
+Restart: zapsat poslední dokončený B-krok, změněné soubory a testy do comments.
+Aktuálně nejsou B01–B08 implementované; tato revize upravuje pouze zadání.
 
 ## Acceptance
 
@@ -462,22 +278,25 @@ sequenceDiagram
 - --benchmark s explicitním seznamem testuje pouze uvedené modely.
 - GUI a CLI nabízejí stejný seznam stylů a shodně používají výchozí auto.
 - Režim auto nevkládá předdefinovaný jazykový styl a zachová styl originálu.
-- source_language=target_language funguje pouze s explicitním target_variant;
+- source_language=target_language provádí přepis pouze s explicitním target_variant;
+  auto zachová vstup bez AI;
   neutrální češtinu lze převést do cs-slang-argot bez přidání nového obsahu.
 - Překlady a metriky jsou viditelné na obrazovce i v logu.
-- Report obsahuje cold/warm časy, tokeny/s, chyby, SKIP důvody a identifikaci fixture.
-- Referenční překlad se vyhodnocuje po dimenzích, ne pouze přesnou shodou.
+- Report obsahuje first-request/warm časy, skutečné load_duration, tokeny/s,
+  chyby, SKIP důvody a fixture; neověřený cold start se neslibuje.
+- MVP uloží metadata referenčního překladu a strukturální kontroly; úplné
+  dimenzionální kvalitativní hodnocení je navazující rozšíření.
 - Offline testy pokryjí neplatný profil, neznámou politiku, chybějící pole,
   konflikt vulgarity a fidelity, prompt injection ve vstupu a nedostupný model.
-- Dialektové profily používají explicitní slovník, transformační pravidla a
-  pozitivní/negativní fixture; test ověří cílovou češtinu a varování při
-  polské kontaminaci.
+- Dialektové profily používají explicitní slovník a transformační pravidla.
+  MVP negarantuje automatickou detekci polské kontaminace; ta je navazující
+  rozšíření s vlastními pozitivními/negativními fixture.
 - Benchmark nevolá Ollamu během PDF-only fáze a automaticky nestahuje modely.
 
 ## Otevřené otázky
 
-- Zda první verze přijme pouze YAML/JSON soubory, nebo i registry v Pythonu.
-- Zda se reference budou hodnotit ručně, pomocí odděleného judge modelu, nebo kombinací.
+- Pro MVP rozhodnuto: JSON v balíčku, bez nové YAML dependency.
+- Pro MVP rozhodnuto: strukturální kontroly a ruční rubrika; judge je rozšíření.
 - Které tradiční ukázky a překlady mají ověřená práva pro trvalé uložení.
 - Zda profil slang/argot zůstane jeden profil, nebo se později rozdělí podle období a regionu.
 
@@ -488,3 +307,10 @@ sequenceDiagram
 2026-10-11: Upřesněno, že regionální profily mají být záměrně karikaturní. Doplněn požadavek na profilové slovníky, transformační pravidla a kontrolu češtiny proti polské kontaminaci, protože znalost modelu nemusí být spolehlivá.
 2026-10-11: Jazyk a dialekt/registr jsou odděleny jako target_language a target_variant. Stejný mechanismus tak podporuje překlad do varianty i převod mezi variantami bez zvláštního jazyka.
 2026-10-11: Zapsán implementační plán ve fázích 0–6. Task zůstává ve stavu created; implementace ani živý benchmark nebyly zahájeny. Po každé fázi se počítá s cílenou validací, na konci s offline sadou a volitelným Ollama smoke testem.
+2026-10-11: Plán znovu zkontrolován po commitu cloudové autentizace. Pořadí zůstává: kontrakt a registry, prompt composer, fixture, benchmark/reporty, CLI/GUI a závěrečná validace. Implementace se zatím nespouští.
+2026-10-11: Doplněn odhad pracnosti 19–33 hodin čistého času, vertikální řez 7–12 hodin a riziková rezerva 20–30 %. Čas živého benchmarku je uveden samostatně a není součástí odhadu implementace.
+2026-10-11: Plán rozložen na 56 subtasků S01–S56 v doporučené délce 15–30 minut, se závislostmi a kontrolními body po každé fázi.
+2026-10-11: Původní jednotný odhad 15–30 minut na každý subtask byl vyhodnocen jako nadhodnocený. Upraveno na 2–10 minut pro průzkum/dokumentaci, 10–25 minut pro malé změny a 15–30 minut pro integraci; čistý odhad celku je 6–12 hodin, elapsed odhad 8–16 hodin.
+2026-10-11: Revize proti skutečnému kódu potvrdila znovupoužití PerformanceRecorderu, segmentového překladu, JobSpec a Ollama strategií. Automatické kvalitativní skóre a dialektový detektor zůstávají mimo MVP. Odhad první verze je 5–9 hodin čisté práce a 7–13 hodin elapsed času.
+2026-10-11: Doplněn odhad velikosti změn pro každý subtask; celkem přibližně 775–1 630 logických řádků včetně testů, fixture a dokumentace.
+2026-10-11: Revize proti skutečným worker/provider cestám: původní S01–S56 a rozporné odhady nahrazuje plán B01–B08 v doc/style-benchmark-implementation.md. Doplněny minimální kontext, odhady, cache/obnova, balení dat, jednotný prompt dispatch, modelové schopnosti a přesné metriky. Vyřešeny rozpory varianty/style_id a cs→cs auto; diagramy odkazují na jeden cílový návrh. Implementace ani modelové requesty při revizi neproběhly.

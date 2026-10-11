@@ -30,4 +30,24 @@
 - Při review kontroluj dostatečnou dokumentaci veřejných kontraktů a netriviálních bloků;
   pravidlo se nevynucuje počtem komentářů ani mechanickým komentováním samozřejmého kódu.
 
+## Plánování tasků a odhady
+
+- Každý nový nebo podstatně rozšířený task musí mít plán rozdělený na samostatné,
+  pochopitelné a reviewovatelné subtasks. Jeden subtask představuje jednu
+  změnu chování, kontrakt, invariant nebo jiný sémanticky soudržný výsledek.
+- Zachovávají se původní orientační řádková kritéria: interaktivní krok je
+  přibližně 40 logických řádků a samostatně reviewovatelný task přibližně
+  200–400 logických řádků. Dělení se řídí chováním a sémantickou atomicitou,
+  nikoli mechanicky počtem řádků.
+- Pro plánování lze rozsah hrubě převést na čas: interaktivní krok kolem
+  40 řádků obvykle odpovídá přibližně 15–30 minutám čisté práce; task kolem
+  200–400 řádků přibližně 2–4 hodinám. Složitost, integrace, testy a neznámý
+  kód mají přednost před tímto převodem.
+- Každý subtask musí uvést orientační čas, rozsah logických řádků, případně
+  tokenový rozpočet, závislosti, očekávaný výsledek a způsob ověření. Tokeny
+  jsou doplňkový rozsahový odhad, nikoli pevný limit.
+- Po dokončení se podle možností doplní skutečný čas, rozsah změny a výsledek
+  validace. Pokud subtask překročí odhad, zapíše se důvod do comments a plán
+  se upraví, nikoli mechanicky rozbije.
+
 Další obecná pravidla práce řídí nadřazené instrukce Codexu.

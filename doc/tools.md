@@ -144,12 +144,38 @@ Stav: funkční / fallback / omezení.
 Datum: RRRR-MM-DD.
 ```
 
+### Recept 14: Backtick v patchi předávaném přes JavaScript template string
+
+Příznak: při volání apply-patch přes Node/JavaScript skončí wrapper chybou
+SyntaxError: Unexpected identifier 'PromptBuilder'. Cílový soubor se nezmění.
+
+Příčina: patch obsahuje neescapovaný znak backtick uvnitř JavaScript template
+stringu. Text označený backtickem ukončí string a zbytek patchu se interpretuje
+jako JavaScript.
+
+Postup: nejprve ověř, že chyba vznikla ve wrapperu a ne v apply-patch. Z patchu
+odstraň backtickové inline příklady nebo je nahraď prostým textem či apostrofy.
+Alternativně sestav patch z pole řádků a spoj jej přes znak nového řádku, nebo
+backtick explicitně escapuj. Po neúspěchu zkontroluj, že se soubor nezměnil.
+
+Ověření: opakovaný patch bez backticků byl úspěšně aplikován; pokud nástroj
+později hlásí Failed to find expected lines, načti aktuální kontext souboru a
+uprav patch podle něj.
+
+Stav: funkční workaround; druhý pokus je nutné kontrolovat, aby neobsahoval
+stejnou chybu v dokumentačním příkladu.
+Datum: 2026-10-11.
+
 ## Poslední aktualizace
+
+- 2026-10-11: Recept 1 znovu použit po helper_unknown_error; execFile přes Node fungoval. Recept 5 použit po redeklaraci rows; blokové let se samostatným scope fungovalo. Celorepozitářový rg překročil 30s timeout a resetoval REPL; obnovení importů a hledání jen v doc/tasks/AGENTS.md/tasks-local-ai proběhlo za 2 s. Pro malý dotaz zadávat konkrétní kořeny, aby se neprocházely tmp a vnořený checkout. Po timeoutu ověřit dokončené patche čtením.
+- 2026-10-11: Patch selhal na Failed to find expected lines, protože hledaný text začínal uprostřed řádku. Ověřeno znovunačtení souboru a malé patche s celými skutečnými řádky; 16 cílených úprav proběhlo úspěšně. Neopakovat hromadný patch se stejným neplatným kontextem.
 
 - 2026-10-11: při validaci TranslateGemma 12B doplněn workaround pro import path izolované regression sady.
 - 2026-10-11: při živém smoke testu TranslateGemma ověřen endpoint 127.0.0.1:11434 a doplněn recept pro obsazený port/nevhodný localhost.
 - 2026-10-11: při uzavírání benchmarku selhal zápis Git indexu na .git/index.lock; doplněn recept 12.
 - 2026-10-11: doplněn recept 13 pro diagnostiku a cílenou opravu explicitních Windows ACL DENY vytvořených Codex sandboxem na .git; automatická změna ACL je zakázána.
+- 2026-10-11: při zápisu revize tasku selhal JavaScript wrapper kvůli neescapovanému backticku v patch stringu; doplněn recept 14 s bezpečným postupem.
 
 - 2026-10-10: evidence převedena na kuchařku postupů; doplněn recept pro oprávnění, shell, Qwen, Git a REPL.
 - 2026-10-10: revize potvrdila opakované selhání exec_command/apply_patch nástrojů. Ověřeno spuštění samotného apply_patch s cwd projektu; opraven Qwen postup a PDF příkaz podle aktuálních jmen souborů. Shell regex probe selhal kvůli ztracenému escapování závorek; pro inventuru používej více jednoduchých `rg -e` patternů místo ručně escapované složené regex.

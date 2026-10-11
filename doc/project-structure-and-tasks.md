@@ -68,6 +68,11 @@ last change: 2026-10-10
 dependency: done/1-2026-10-10-kontrola-pid-ukoncuje-worker-na-windows.md
 group: runtime/worker/startup
 type: bug
+estimate:
+  time: 30–60 min
+  logical_lines: 20–80
+  tokens: 2k–6k
+  subtasks: S01–S03
 description:
 Problém, dopad a očekávané chování.
 Evidence: zdroj nebo reprodukce; odlišit ověřenou chybu od rizika.
@@ -87,10 +92,29 @@ comments:
 | type | bug, feature, refactor, test, documentation nebo tooling. Typ určuje druh práce, ne prioritu. Nový typ přidat jen když existující nestačí. |
 | description | Problém/záměr, dopad, doporučení a podmínky dokončení. Evidence má rozlišit reprodukci, statickou revizi a hypotézu. |
 | comments | Datované změny, rozhodnutí, průběh implementace a výsledky ověření. Nový záznam doplnit, předchozí nesmazat. |
+| estimate | Povinný pro nový nebo podstatně změněný task: orientační čas, logické řádky změny, případně tokeny, a odkaz na rozpad subtasks. |
 
 `dependency` znamená skutečný implementační předpoklad, nikoli jen související téma nebo nadřazenou kategorii. Více rodičů tvoří acyklický graf. Opačný odkaz v rodiči není povinný; děti lze najít podle jejich dependency. Zákaz self-reference, neexistujících souborů a cyklů. Při oboustranné závislosti společný invariant vyjmout do předchozího tasku nebo úlohy sloučit; nevytvářet kruhovou frontu.
 
 Při změně priority přejmenovat soubor a opravit dependency i dokumentační odkazy. Slug se jinak nemění bez důvodu. Po přechodu do `done` se issue přesune do `tasks/done/` jako evidence rozhodnutí. Před přesunem doplnit poslední komentář s datem, výsledkem validace a případnými omezeními. Do `tasks/` patří jen otevřená issues ve stavech `created`, `progress` nebo `test`.
+
+## Povinný rozpad a odhady
+
+Každý nový nebo podstatně rozšířený task musí být rozdělen na samostatné,
+pochopitelné a reviewovatelné subtasks. Subtask má jednu sémanticky soudržnou
+změnu, vlastní výsledek, závislosti a způsob ověření.
+
+Zachovávají se orientační řádková kritéria:
+
+- interaktivní krok přibližně 40 logických řádků,
+- samostatně reviewovatelný task přibližně 200–400 logických řádků,
+- dělení podle chování, nikoli mechanicky podle počtu řádků.
+
+Pro hrubý plán lze 40 logických řádků převést na přibližně 15–30 minut čisté
+práce a 200–400 řádků na přibližně 2–4 hodiny. Jde pouze o orientaci; složitost,
+integrace, testy a neznámý kód mohou odhad změnit. U každého subtasku se uvádí
+čas, rozsah logických řádků, případně tokeny, dependency, výsledek a validace.
+Po dokončení se podle možností zapíše skutečný rozsah a čas.
 
 ## Skupiny stávajícího backlogu
 
@@ -125,7 +149,7 @@ Následující pořadí respektuje uvedené dependency. Je to plán pro aktuáln
 
 | Krok | Priorita | Issue | Group | Type |
 |---|---|---|---|---|
-| prostředí | 3 | [Lokální implementační agent se nedostane k úloze](../tasks/3-2026-10-10-lokalni-agent-blokovan-continue-serverem.md) | tooling/local-agent | tooling |
+| odložené instrukce | 5 | [Izolované instrukce lokálního agenta](../tasks/5-2026-10-10-lokalni-agent-blokovan-continue-serverem.md) | tooling/local-agent | tooling |
 | 1 | 1 | [Kontrola PID ukončuje proces na Windows](../tasks/done/1-2026-10-10-kontrola-pid-ukoncuje-worker-na-windows.md) | runtime/process | bug |
 | 2 | 2 | [Worker nelze spustit současným launcherem](../tasks/done/2-2026-10-10-worker-se-nespusti-pres-balicek.md) | runtime/worker/startup | bug |
 | 3 | 2 | [Zámek není bezpečný při inicializaci a selhání zápisu](../tasks/done/2-2026-10-10-lock-recovery-a-selhani-zapisu.md) | persistence/locks | bug |
@@ -144,6 +168,21 @@ Následující pořadí respektuje uvedené dependency. Je to plán pro aktuáln
 Nízká priorita refaktoringu není důvod přeskočit kritické opravy. Po jejich stabilizaci lze menší mechanické zpřehlednění přidat přímo do příslušného tasku, pokud nerozšiřuje jeho rozsah.
 
 ## Nový backlog modularizace
+
+### Aktuální otevřené tasky – revize 2026-10-11
+
+| Pořadí | Task | Stav a další práce |
+|---|---|---|
+| 1 | [Keyring](../tasks/2-2026-10-11-login-chybejici-keyring.md) | test; K01 skutečný backend, K02 ruční evidence; cloud není potřeba |
+| 2 | [Gemini OAuth](../tasks/2-2026-10-11-gemini-oauth-invalid-client.md) | test; G01 offline, G02 uživatelem odložený živý test |
+| 3 | [Styly a benchmark](../tasks/3-2026-10-11-stylove-profily-a-benchmark.md) | created; připravené kroky B01–B08, nezávislé na cloudové autentizaci |
+| 4 | [Izolované instrukce agenta](../tasks/5-2026-10-10-lokalni-agent-blokovan-continue-serverem.md) | created; dokumentace L01–L02, agenta nespouštět |
+
+Odložený ruční cloudový test neblokuje nezávislé implementační tasky. Zadání
+obsahují odhady, konkrétní minimální kontext, dependencies, výstup a ověření.
+Autoritativní [plán stylů](style-benchmark-implementation.md) nahrazuje 56
+mikroúloh; jednotlivý B-krok obsahuje chování i testy. Při obnově práce číst
+aktuální issue a jediný odpovídající krok, ne celý chat.
 
 Implementační analýza M01–M14 je v [implementační analýze](modularization-analysis.md#a12-tasky-poradi-a-dokonceni). V tomto průchodu byly tasky M01–M14 dokončeny, ověřeny a přesunuty do \`tasks/done/\`; každý zachovává dependency, ověřovací podmínky a historii v \`comments\`. M15 je nyní dokončený a přesunutý do \`tasks/done/\`; otevřený zůstává evidenční task lokálního agenta, který tento průchod záměrně neřeší. Výše uvedená tabulka je evidence předchozí revize.
 
