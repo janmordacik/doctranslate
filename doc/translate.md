@@ -47,9 +47,9 @@ Aktuální produkční cesta je stále PDF → XHTML/HTML → PDF. Nový kontrak
 | CLI add/start/pause/stop/status | implementováno |
 | Jednorázový globální stop | implementováno; spolehlivost závisí na opravě worker liveness a hraničních přechodů |
 | Živá změna nastavení během dávky | běžné změny se uplatní podle pollu; invalidace aktuálního jobu se během AI překladu zpracuje okamžitě |
-| TranslateGemma 12B | implementována verzovaná Ollama prompt strategie; instalace a krátký živý smoke test prošly, úplné měření kvality je navazující benchmark v [tasku](../tasks/2-2026-10-11-translategemma-12b-implementace.md) |
-| TranslateGemma 4B | sdílí implementovanou rodinnou strategii; instalace a krátký živý smoke test prošly, úplné měření kvality je navazující benchmark v [tasku](../tasks/2-2026-10-11-translategemma-4b-implementace.md) |
-| Srovnání TranslateGemma 4B/12B | předběžné omezené srovnání je v [reportu](../tmp/translategemma-smoke/comparison-2026-10-11.md); reprezentativní benchmark pokračuje v tasku [3-2026-10-11-translategemma-srovnani-4b-12b.md](../tasks/3-2026-10-11-translategemma-srovnani-4b-12b.md) |
+| TranslateGemma 12B | implementována verzovaná Ollama prompt strategie; lokální benchmark proti qwen3.8:27b proběhl, TranslateGemma byla na tomto stroji rychlejší; úplné kvalitativní hodnocení zůstává omezené na krátký fixture |
+| TranslateGemma 4B | strategie je implementována; model je dostupný v Ollamě a benchmark 4B/12B/Qwen byl dokončen |
+| Srovnání TranslateGemma/Qwen 3.8 | dokončeno pro 4B, 12B a qwen3.8:27b v [reportu](../tmp/translategemma-smoke/comparison-2026-10-11.md); doporučení je podmíněné krátkým fixture |
 | Náhled aktuálního překládaného bloku | implementováno a otestováno v [tasku 3-2026-10-11-gui-nahled-aktualniho-bloku.md](../tasks/3-2026-10-11-gui-nahled-aktualniho-bloku.md); dávkový snapshot bez streamování |
 | Vizuální regresní test PDF | odloženo |
 | GitHub push | odloženo; pracuje se lokálně |
@@ -608,7 +608,7 @@ Statická diagnostika referenčního běhu zjistila 493 stran, přibližně 5 80
 2. Dokončeno: lock, konflikty fronty, životní cyklus workeru, zápisové chyby a bootstrap jsou pokryté offline regresemi.
 3. Dokončeno: jednotné CLI chyby, dependency preflight a offline fake-backend test jsou implementované.
 4. Ujasnit víceuzlový text/markup kontrakt; teprve potom postupně připojovat pluginy a immutable JobContext.
-5. Vizuální PDF regresi a benchmark translategemma:12b provést samostatně; sazbu aktuálního PDF spouští uživatel.
+5. Vizuální PDF regresi a delší ručně hodnocený benchmark TranslateGemma provést samostatně; aktuální sazbu PDF spouští uživatel.
 6. Commit/push pouze po výslovném rozhodnutí.
 
 ## Provozní poznámky nástrojů

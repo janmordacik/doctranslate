@@ -1,4 +1,4 @@
-status: test
+status: done
 last change: 2026-10-11
 dependency: ../done/3-2026-10-10-ollama-provider-a-migrace.md; ../done/2-2026-10-11-translategemma-12b-implementace.md; ../done/2-2026-10-11-translategemma-4b-implementace.md
 group: ai/ollama/translation-models
@@ -129,3 +129,8 @@ existuje ve variantách 4B/12B/27B, podporuje en→cs; 4B a 12B čekají na lok�
 instalaci a praktický benchmark.
 
 2026-10-11: Sloučen obsah tasku 3-2026-10-11-translategemma-srovnani-4b-12b.md; aktivní benchmark zůstává ve stavu test. Předběžné měření: 12B cold 9,197 s, načtení 5,88 s, generace 60,6 tokenu/s; 4B cold 43,204 s, načtení 41,27 s, generace 128,1 tokenu/s. Report: tmp/translategemma-smoke/comparison-2026-10-11.md.
+
+2026-10-11: Srovnání s qwen3.8:27b dokončeno na stejném en→cs fixture. TranslateGemma 12B: cold 8,22 s, warm p50 2,29 s, 60,9 tokenu/s. Qwen 3.8 27B: cold 12,62 s, warm p50 3,35 s, 40,4 tokenu/s. Oba modely prošly JSON batch smoke testem s platnými ID; TranslateGemma je předběžně rychlejší. Při think=true/neuvedeném think Qwen vyčerpal limit reasoningem, aplikace proto musí zachovat think=false. Report: tmp/translategemma-smoke/comparison-translategemma-qwen-2026-10-11.md.
+2026-10-11: Opakovaná kontrola ollama list a /api/tags potvrdila dostupnost translategemma:4b. Benchmark byl zopakován pro 4B, 12B a qwen3.8:27b se stejným fixture. 4B: cold 5,30 s, warm p50 1,13 s, 127,8 tokenu/s; 12B: cold 8,53 s, warm p50 2,26 s, 61,8 tokenu/s; Qwen: cold 12,86 s, warm p50 3,31 s, 40,9 tokenu/s. Všechny běhy vrátily použitelný český překlad a zachovaly placeholder, URL a symbol. Report: tmp/translategemma-smoke/comparison-2026-10-11.md; data: tmp/translategemma-smoke/comparison-2026-10-11-4b-rerun.json.
+
+2026-10-11: Benchmarkový task uzavřen. Doporučení: 4B jako rychlá výchozí volba po ověření na delším odborném fixture, 12B jako kvalitativně bezpečnější volba; Qwen 3.8 27B v tomto měření nepřinesl výkonnostní výhodu.

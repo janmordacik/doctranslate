@@ -106,6 +106,14 @@ translategemma:4b, každý s offline 16/16 a jedním živým požadavkem.
 - **Stav:** funkční workaround.
 - **Datum:** 2026-10-11.
 
+### Recept 12: Git nemůže vytvořit index.lock
+
+- **Příznak:** git add, git mv nebo git commit skončí chybou Unable to create .git/index.lock: Permission denied, přestože čtecí příkazy Git fungují.
+- **Postup:** nepokoušej se obcházet chybu mazáním neověřeného locku ani změnou ACL. Dokonči a ověř změny v pracovním stromu; commit opakuj až po obnovení zápisu do .git.
+- **Ověření:** 2026-10-11 benchmarkový task byl dokončen, ale git add i předchozí git mv selhaly na vytvoření .git/index.lock. Změny jsou ověřené v pracovním stromu a čekají na pozdější commit.
+- **Stav:** omezení oprávnění prostředí.
+- **Datum:** 2026-10-11.
+
 Použij tento formát:
 
 ```text
@@ -121,6 +129,7 @@ Datum: RRRR-MM-DD.
 
 - 2026-10-11: při validaci TranslateGemma 12B doplněn workaround pro import path izolované regression sady.
 - 2026-10-11: při živém smoke testu TranslateGemma ověřen endpoint 127.0.0.1:11434 a doplněn recept pro obsazený port/nevhodný localhost.
+- 2026-10-11: při uzavírání benchmarku selhal zápis Git indexu na .git/index.lock; doplněn recept 12.
 
 - 2026-10-10: evidence převedena na kuchařku postupů; doplněn recept pro oprávnění, shell, Qwen, Git a REPL.
 - 2026-10-10: revize potvrdila opakované selhání exec_command/apply_patch nástrojů. Ověřeno spuštění samotného apply_patch s cwd projektu; opraven Qwen postup a PDF příkaz podle aktuálních jmen souborů. Shell regex probe selhal kvůli ztracenému escapování závorek; pro inventuru používej více jednoduchých `rg -e` patternů místo ručně escapované složené regex.
