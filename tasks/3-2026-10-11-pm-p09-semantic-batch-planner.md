@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p02-engine-kontrakt-a-registr.md, 3-2026-10-11-pm-p05-legacy-xhtml-bridge.md
 group: translation/engine/planning
@@ -74,3 +74,10 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P09 implementován v translation/planning.py. Planner používá injektovaný TokenCounter nebo konzervativní fallback, rezervuje instrukce/schema/výstup, vytváří stabilní segment/part IDs, zachovává přesný source text a page čísla drží pouze jako metadata. Překročená věta nebo chráněný literál skončí explicitní SegmentTooLargeError; žádný okolní text se nepřidává do výstupu.
+
+2026-10-11: Validace: cílené testy 11 passed; celá sada 193 passed, 4 subtests passed. git diff --check bez nálezu.
+
+2026-10-11: Omezení: planner neprovádí NLP syntaktickou analýzu ani tokenizaci konkrétního modelu; pro produkční tokenizer zůstává připravená injekční hranice.
