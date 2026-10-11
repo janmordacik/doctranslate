@@ -1,4 +1,4 @@
-status: created
+status: progress
 last change: 2026-10-11
 dependency: none
 group: architecture/source-layout
@@ -57,7 +57,7 @@ neprovádět ve stejném kroku jako dělení queue nebo translation runtime.
 
 | ID | Výsledek | Odhad času | Odhad řádků | Závislost |
 |---|---|---:|---:|---|
-| M01 | inventář symbolů, importních hranic a cyklů | 10–20 min | 30–60 | none |
+| M01 | inventář symbolů, importních hranic a cyklů | 10–20 min | 30–60 | none | done |
 | M02 | queue model/store/controller rozdělené do queue/ | 30–60 min | 120–220 | M01 |
 | M03 | worker oddělený od GUI a queue persistence | 25–50 min | 80–160 | M02 |
 | M04 | translation runtime rozdělený na pipeline/batch/cache | 45–90 min | 180–350 | M01 |
@@ -155,3 +155,14 @@ Translation package obsahuje pouze formátově nezávislé engine/memory/plannin
 služby. PDF typesetting odstraněn z plánované translation struktury; patří
 do document output adaptéru. Nevytvářet dva konkurenční refaktoringy týchž
 symbolů; M04/M05 musí koordinovat P03/P05/P07. Queue přesuny nejsou jejich blokátor.
+
+
+2026-10-11: M01 dokončen pouze staticky, bez přesunů zdrojů. Největší moduly:
+translate.py přibližně 3320 řádků, queue_app.py 2327, translation/tools.py
+560 a queue_worker.py 535. Nové translation moduly jsou již oddělené, proto
+M04 nesmí mechanicky přesouvat tools/memory/session bez nového kontraktu.
+
+2026-10-11: Doporučení pro další review: nejprve M02 queue_app rozdělit podle
+QueueStore/FileLock/CLI-GUI controller hranice, poté M03 worker. translate.py
+ponechat mimo první průchod nebo rozdělit až po mapě veřejných globálů a PDF-only
+cesty. M01 nezměnil runtime, nevyžaduje nový test a nebyl vydán za hotový refaktor.
