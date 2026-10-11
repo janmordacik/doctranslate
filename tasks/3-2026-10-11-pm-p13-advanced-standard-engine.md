@@ -1,4 +1,4 @@
-status: created
+status: done
 last change: 2026-10-11
 dependency: done/3-2026-10-11-navrh-pokrocileho-prekladoveho-modulu.md, 3-2026-10-11-pm-p03-basic-engine.md, 3-2026-10-11-pm-p04-engine-checkpoint.md, 3-2026-10-11-pm-p07-worker-engine-dispatch.md, 3-2026-10-11-pm-p09-semantic-batch-planner.md, 3-2026-10-11-pm-p10-json-glossary-store.md, 3-2026-10-11-pm-p11-bounded-memory-context.md, 3-2026-10-11-pm-p12-contextual-provider-port.md
 group: translation/engine/advanced
@@ -76,3 +76,10 @@ Actual tokens: unavailable
 
 2026-10-11: Připraveno pro Lunu jako jeden bounded leaf. Implementace nezačala;
 dotaz/blokátor/důvod neprovedení doplnit sem, nikoli odhadnout mimo kontrakt.
+
+
+2026-10-11: P13 implementován v translation/advanced.py a aktivaci registry. Standard advanced engine orchestruje planner → bounded context → contextual backend → quality validation → XHTML apply → checkpoint, bez tool calling; podporuje warn/strict, bounded retry, cancel, progress/preview, glossary term bindings a resume. Registry helper advanced označí jako unavailable bez kompatibilního factory a neprovádí silent fallback.
+
+2026-10-11: Validace: cílené testy 15 passed; celá sada 217 passed, 4 subtests passed. git diff --check bez nálezu.
+
+2026-10-11: Omezení: composition root queue worker stále nedodává konkrétní advanced factory; P13 připravuje engine a registry contract, skutečné runtime zapojení backendu je samostatná integrační práce.

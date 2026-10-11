@@ -124,3 +124,21 @@ def _type_name(expected: type | tuple[type, ...]) -> str:
     if isinstance(expected, tuple):
         return " or ".join(item.__name__ for item in expected)
     return expected.__name__
+
+
+def register_advanced_standard(
+    registry: TranslationEngineRegistry,
+    factory: Any = None,
+    *,
+    reason: str = "no compatible contextual backend is registered",
+) -> None:
+    """Register advanced only when a composition root supplies a factory."""
+    from .advanced import ADVANCED_OPTIONS_SCHEMA, ADVANCED_REVISION
+
+    available = factory is not None
+    registry.register(EngineDescriptor(
+        id="advanced", label="Advanced", revision=ADVANCED_REVISION,
+        options_schema=ADVANCED_OPTIONS_SCHEMA,
+        capabilities=("contextual", "checkpoint", "glossary"),
+        available=available, reason="" if available else reason, factory=factory,
+    ))
